@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import {
   FileText, FileImage, FileVideo, FileArchive, File,
-  Upload, X, CheckCircle2, ExternalLink, AlertCircle, Clock, ShieldAlert,
+  Upload, X, CheckCircle2, ExternalLink, AlertCircle, Clock, ShieldAlert, Undo2,
 } from "lucide-react";
 import {
   startDraftSubmission,
@@ -16,6 +16,7 @@ import {
   removeSubmissionFile,
   submitSubmission,
   resubmitSubmission,
+  recallSubmission,
   saveAnswerText,
   attachAnswerFile,
 } from "../submit/actions";
@@ -328,7 +329,7 @@ interface Props {
   assignment: Assignment;
   submission: Submission;
   courseSlug: string;
-  lessonId: number;
+  lessonId: number | null;
 }
 
 export function AssignmentPanel({ assignment, submission: initialSub, courseSlug, lessonId }: Props) {
@@ -358,6 +359,10 @@ export function AssignmentPanel({ assignment, submission: initialSub, courseSlug
     !submission ||
     submission.status === "DRAFT" ||
     submission.status === "REVISION_REQUESTED";
+
+  const canRecall =
+    submission?.status === "SUBMITTED" &&
+    (!assignment.dueDate || new Date() < new Date(assignment.dueDate));
 
   // For free-form upload (no questions), require at least one file
   // For question-based, require that required questions have text or files
@@ -473,6 +478,19 @@ export function AssignmentPanel({ assignment, submission: initialSub, courseSlug
           await submitSubmission(submission.id, courseSlug, lessonId);
         }
         setSubmission((prev) => prev ? { ...prev, status: "SUBMITTED" } : prev);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
+  function handleRecall() {
+    if (!submission) return;
+    startTransition(async () => {
+      try {
+        await recallSubmission(submission.id, courseSlug, lessonId);
+        setSubmission((prev) => prev ? { ...prev, status: "DRAFT", } : prev);
+        setError("");
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -621,7 +639,7 @@ export function AssignmentPanel({ assignment, submission: initialSub, courseSlug
           </div>
         )}
 
-        {/* Submit + view link */}
+        {/* Submit + recall + view link */}
         <div className="flex items-center gap-3 flex-wrap">
           {canSubmit && (
             <Button onClick={handleSubmit} disabled={isPending || uploadProgress !== null}>
@@ -630,6 +648,17 @@ export function AssignmentPanel({ assignment, submission: initialSub, courseSlug
                 : submission?.status === "REVISION_REQUESTED"
                 ? "ส่งงานใหม่"
                 : "ส่งงาน"}
+            </Button>
+          )}
+          {canRecall && (
+            <Button
+              variant="outline"
+              onClick={handleRecall}
+              disabled={isPending}
+              title="ถอนงานกลับมาแก้ไข (ก่อนครบกำหนด)"
+            >
+              <Undo2 className="h-4 w-4 mr-1.5" />
+              {isPending ? "กำลังถอน..." : "ถอนงาน"}
             </Button>
           )}
           {submission && submission.status !== "DRAFT" && (

@@ -425,6 +425,90 @@ async function main() {
     });
 
     console.log("✅ Created 5 assignments across 5 lessons with varied question types");
+
+    // ── Course-level assignments ───────────────────────────────────────────
+
+    await (prisma.assignment as any).create({
+      data: {
+        courseId,
+        lessonId: null,
+        title: "งานสรุปการเรียนรู้ระดับวิชา (Final Reflection)",
+        description: "สรุปและสะท้อนความคิดเกี่ยวกับการเรียนรู้ตลอดหลักสูตร พร้อมนำเสนอแผนพัฒนาตนเองในฐานะครูมืออาชีพ",
+        maxFileSize: 20 * 1024 * 1024,
+        allowedTypes: ["application/pdf", "image/jpeg", "image/png"],
+        dueDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+        questions: {
+          create: [
+            {
+              order: 1,
+              prompt: "สรุปความรู้และทักษะสำคัญที่ได้รับจากหลักสูตรนี้ (อย่างน้อย 5 ประเด็น)",
+              responseType: "TEXT",
+              required: true,
+              maxLength: 1000,
+            },
+            {
+              order: 2,
+              prompt: "อธิบายวิธีที่คุณจะนำความรู้จากหลักสูตรไปประยุกต์ใช้ในห้องเรียนจริง พร้อมตัวอย่างแผนการสอน 1 แผน",
+              responseType: "BOTH",
+              required: true,
+              maxLength: 1200,
+            },
+            {
+              order: 3,
+              prompt: "อัปโหลด Mini Portfolio: รวบรวมหลักฐานการพัฒนาตนเองตลอดหลักสูตร (PDF หรือรูปภาพ)",
+              responseType: "FILE",
+              required: false,
+            },
+            {
+              order: 4,
+              prompt: "เป้าหมายการพัฒนาวิชาชีพของคุณใน 6 เดือนข้างหน้าคืออะไร? (Professional Development Plan)",
+              responseType: "TEXT",
+              required: true,
+              maxLength: 600,
+            },
+          ],
+        },
+      },
+    });
+
+    await (prisma.assignment as any).create({
+      data: {
+        courseId,
+        lessonId: null,
+        title: "แบบสอบถามความพึงพอใจและข้อเสนอแนะหลักสูตร",
+        description: "ให้ข้อเสนอแนะเพื่อพัฒนาหลักสูตรนี้สำหรับรุ่นต่อไป ความคิดเห็นของคุณมีคุณค่ามากต่อการพัฒนาการศึกษา",
+        maxFileSize: 5 * 1024 * 1024,
+        allowedTypes: ["application/pdf", "image/jpeg", "image/png"],
+        dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        questions: {
+          create: [
+            {
+              order: 1,
+              prompt: "สิ่งที่คุณชอบมากที่สุดในหลักสูตรนี้คืออะไร? (เนื้อหา กิจกรรม สื่อการสอน ฯลฯ)",
+              responseType: "TEXT",
+              required: true,
+              maxLength: 500,
+            },
+            {
+              order: 2,
+              prompt: "สิ่งที่ควรปรับปรุงหรือเพิ่มเติมในหลักสูตรนี้ เพื่อให้เป็นประโยชน์มากขึ้น",
+              responseType: "TEXT",
+              required: true,
+              maxLength: 500,
+            },
+            {
+              order: 3,
+              prompt: "คุณจะแนะนำหลักสูตรนี้ให้เพื่อนครูคนอื่นหรือไม่? เพราะเหตุใด?",
+              responseType: "TEXT",
+              required: true,
+              maxLength: 300,
+            },
+          ],
+        },
+      },
+    });
+
+    console.log("✅ Created 2 course-level assignments");
   } else {
     courseId = existingCourse.id;
 
@@ -463,7 +547,7 @@ async function main() {
       const q1 = assignment.questions[0];
       const q2 = assignment.questions[1];
 
-      // student1 — SUBMITTED submission with text answers
+      // student1 — DRAFT with prefilled text answers (editable)
       const student1 = await prisma.user.findUnique({ where: { email: "student1@school.ac.th" } });
       if (student1) {
         const existing = await prisma.submission.findFirst({
@@ -471,15 +555,8 @@ async function main() {
         });
         if (!existing) {
           const sub = await prisma.submission.create({
-            data: {
-              assignmentId: assignment.id,
-              studentId: student1.id,
-              status: "SUBMITTED",
-              submittedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-              firstSubmittedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-            },
+            data: { assignmentId: assignment.id, studentId: student1.id, status: "DRAFT" },
           });
-          // Text answers
           await (prisma.submissionAnswer as any).create({
             data: {
               submissionId: sub.id,
@@ -494,7 +571,7 @@ async function main() {
               textAnswer: "นักเรียนสามารถ:\n1. อธิบายวัฏจักรของน้ำได้ครบถ้วน\n2. วิเคราะห์สาเหตุที่ทำให้เกิดฝนได้\n3. ออกแบบการทดลองอย่างง่ายเพื่อสาธิตการระเหยของน้ำได้",
             },
           });
-          console.log(`✅ Created mock SUBMITTED submission for student1`);
+          console.log(`✅ Created mock DRAFT submission for student1`);
         }
       }
 
@@ -523,7 +600,7 @@ async function main() {
         }
       }
 
-      // student3 — APPROVED submission with score
+      // student3 — DRAFT with text answers (editable)
       const student3 = await prisma.user.findUnique({ where: { email: "student3@school.ac.th" } });
       if (student3) {
         const existing = await prisma.submission.findFirst({
@@ -531,18 +608,7 @@ async function main() {
         });
         if (!existing) {
           const sub = await prisma.submission.create({
-            data: {
-              assignmentId: assignment.id,
-              studentId: student3.id,
-              status: "APPROVED",
-              score: 88,
-              maxScore: 100,
-              feedback: "แผนการสอนมีความชัดเจนและครอบคลุม ผลลัพธ์การเรียนรู้วัดได้จริง กิจกรรม Think-Pair-Share เหมาะสมกับเนื้อหา แนะนำให้เพิ่มส่วนการประเมินผลระหว่างเรียน",
-              submittedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-              firstSubmittedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-              reviewedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-              reviewedBy: mentor1.id,
-            },
+            data: { assignmentId: assignment.id, studentId: student3.id, status: "DRAFT" },
           });
           await (prisma.submissionAnswer as any).create({
             data: {
@@ -558,11 +624,11 @@ async function main() {
               textAnswer: "นักเรียนสามารถ:\n1. วิเคราะห์องค์ประกอบของบทกวีได้\n2. แต่งบทร้อยกรองอย่างง่ายได้\n3. นำเสนอผลงานและให้ Feedback เพื่อนได้",
             },
           });
-          console.log(`✅ Created mock APPROVED submission for student3 (score: 88/100)`);
+          console.log(`✅ Created mock DRAFT submission for student3`);
         }
       }
 
-      // student4 — REVISION_REQUESTED
+      // student4 — DRAFT (editable, no prior feedback)
       const student4 = await prisma.user.findUnique({ where: { email: "student4@school.ac.th" } });
       if (student4) {
         const existing = await prisma.submission.findFirst({
@@ -570,19 +636,71 @@ async function main() {
         });
         if (!existing) {
           await prisma.submission.create({
-            data: {
-              assignmentId: assignment.id,
-              studentId: student4.id,
-              status: "REVISION_REQUESTED",
-              feedback: "ผลลัพธ์การเรียนรู้ยังไม่สามารถวัดได้จริง กรุณาปรับให้เป็น Measurable โดยระบุเกณฑ์ที่ชัดเจน และเพิ่มกิจกรรมที่เน้น Active Learning มากขึ้น",
-              submittedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-              firstSubmittedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-              reviewedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
-              reviewedBy: mentor1.id,
-            },
+            data: { assignmentId: assignment.id, studentId: student4.id, status: "DRAFT" },
           });
-          console.log(`✅ Created mock REVISION_REQUESTED submission for student4`);
+          console.log(`✅ Created mock DRAFT submission for student4`);
         }
+      }
+    }
+  }
+
+  // ── Mock Submissions for course-level assignment ─────────────────────────
+  const courseAssignment = await prisma.assignment.findFirst({
+    where: { course: { slug: "intro-to-teaching" }, lessonId: null },
+    include: { questions: { orderBy: { order: "asc" } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (courseAssignment && courseAssignment.questions.length >= 2) {
+    const cq1 = courseAssignment.questions[0];
+    const cq2 = courseAssignment.questions[1];
+
+    // student1 — DRAFT with pre-filled answers on course assignment
+    const s1 = await prisma.user.findUnique({ where: { email: "student1@school.ac.th" } });
+    if (s1) {
+      const existing = await prisma.submission.findFirst({
+        where: { assignmentId: courseAssignment.id, studentId: s1.id },
+      });
+      if (!existing) {
+        const sub = await prisma.submission.create({
+          data: { assignmentId: courseAssignment.id, studentId: s1.id, status: "DRAFT" },
+        });
+        await (prisma.submissionAnswer as any).create({
+          data: {
+            submissionId: sub.id,
+            questionId: cq1.id,
+            textAnswer: "1. หลักการ Active Learning และการออกแบบกิจกรรมที่ให้นักเรียนมีส่วนร่วม\n2. ทฤษฎี ZPD และการใช้ Scaffolding อย่างเหมาะสม\n3. การออกแบบ Rubric ที่ชัดเจนและยุติธรรม\n4. เทคนิค Differentiated Instruction เพื่อตอบสนองความหลากหลายในห้องเรียน\n5. การให้ Feedback ที่มีประสิทธิภาพและตรงเวลา",
+          },
+        });
+        await (prisma.submissionAnswer as any).create({
+          data: {
+            submissionId: sub.id,
+            questionId: cq2.id,
+            textAnswer: "ฉันจะนำเทคนิค Think-Pair-Share มาใช้ในวิชาวิทยาศาสตร์ ม.1 โดยเริ่มต้นบทเรียนด้วยคำถามกระตุ้นความคิด ให้นักเรียนคิดคนเดียว 2 นาที จับคู่อภิปราย 3 นาที แล้วนำเสนอต่อชั้น แผนการสอนตัวอย่าง: หน่วยวัฏจักรน้ำ ชั้น ม.1 ใช้ภาพถ่ายเมฆและฝนเป็นสิ่งกระตุ้น",
+          },
+        });
+        console.log("✅ Created mock DRAFT submission for student1 on course assignment");
+      }
+    }
+
+    // student2 — DRAFT with partial answer on course assignment
+    const s2 = await prisma.user.findUnique({ where: { email: "student2@school.ac.th" } });
+    if (s2) {
+      const existing = await prisma.submission.findFirst({
+        where: { assignmentId: courseAssignment.id, studentId: s2.id },
+      });
+      if (!existing) {
+        const sub = await prisma.submission.create({
+          data: { assignmentId: courseAssignment.id, studentId: s2.id, status: "DRAFT" },
+        });
+        await (prisma.submissionAnswer as any).create({
+          data: {
+            submissionId: sub.id,
+            questionId: cq1.id,
+            textAnswer: "ได้เรียนรู้เทคนิค PBL และ Jigsaw Learning ซึ่งจะนำไปใช้ในวิชาคณิตศาสตร์ระดับประถมศึกษา",
+          },
+        });
+        console.log("✅ Created mock DRAFT submission for student2 on course assignment");
       }
     }
   }
@@ -596,9 +714,10 @@ async function main() {
     "    ├─ Section 2: 2 lessons + section quiz (after)\n" +
     "    ├─ Section 3: 2 lessons + section quiz (after)\n" +
     "    ├─ POST-TEST (10Q, 70% pass, course gate)\n" +
-    "    └─ 5 Assignments (TEXT / FILE / BOTH question types)\n" +
+    "    ├─ 5 Lesson Assignments (TEXT / FILE / BOTH question types)\n" +
+    "    └─ 2 Course-level Assignments (Final Reflection + Feedback Survey)\n" +
     "  Enrollments: students 1-5 APPROVED · student6 PENDING\n" +
-    "  Mock Submissions: student1 SUBMITTED · student2 DRAFT · student3 APPROVED · student4 REVISION_REQUESTED"
+    "  Mock Submissions: student1-4 DRAFT on lesson assign · student1-2 DRAFT on course assign"
   );
 }
 

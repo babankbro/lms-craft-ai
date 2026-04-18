@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/permissions";
+import { canRecallSubmission } from "@/lib/submission-state";
 import { SubmissionStatus } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import {
   TableHeader, TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
+import { RecallButton } from "./_components/recall-button";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +48,11 @@ export default async function SubmissionsPage({
     where,
     include: {
       assignment: {
-        include: {
-          lesson: {
-            include: { course: { select: { title: true, slug: true } } },
-          },
+        select: {
+          title: true,
+          dueDate: true,
+          lesson: { include: { course: { select: { title: true, slug: true } } } },
+          course: { select: { title: true, slug: true } },
         },
       },
       files: { select: { id: true } },
@@ -88,12 +91,15 @@ export default async function SubmissionsPage({
                 <TableHead>สถานะ</TableHead>
                 <TableHead>วันที่</TableHead>
                 <TableHead>ดู</TableHead>
+                <TableHead>การดำเนินการ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {submissions.map((sub) => (
                 <TableRow key={sub.id}>
-                  <TableCell>{sub.assignment.lesson.course.title}</TableCell>
+                  <TableCell>
+                    {sub.assignment.lesson?.course.title ?? sub.assignment.course?.title ?? "—"}
+                  </TableCell>
                   <TableCell>{sub.assignment.title}</TableCell>
                   <TableCell>{sub.files.length}</TableCell>
                   <TableCell>
@@ -110,6 +116,11 @@ export default async function SubmissionsPage({
                     <Link href={`/submissions/${sub.id}`} className="text-primary hover:underline text-sm">
                       ดูรายละเอียด
                     </Link>
+                  </TableCell>
+                  <TableCell>
+                    {canRecallSubmission(sub.status, sub.assignment.dueDate) && (
+                      <RecallButton submissionId={sub.id} />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

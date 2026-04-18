@@ -333,6 +333,20 @@ export default async function AdminCourseDetailPage({
           </Table>
         </CardContent>
       </Card>
+
+      <Separator />
+
+      {/* Course-level Assignments */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>งานระดับวิชา</CardTitle>
+            <Link href={`/admin/courses/${course.id}/assignments`}>
+              <Button variant="outline" size="sm">จัดการงาน →</Button>
+            </Link>
+          </div>
+        </CardHeader>
+      </Card>
     </div>
   );
 }

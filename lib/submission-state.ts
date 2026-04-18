@@ -8,7 +8,7 @@ import { SubmissionStatus } from "@prisma/client";
 // Legal transitions: from → set of allowed to-states
 const TRANSITIONS: Record<SubmissionStatus, SubmissionStatus[]> = {
   DRAFT: ["SUBMITTED"],
-  SUBMITTED: ["UNDER_REVIEW", "REVISION_REQUESTED", "APPROVED", "REJECTED"],
+  SUBMITTED: ["DRAFT", "UNDER_REVIEW", "REVISION_REQUESTED", "APPROVED", "REJECTED"],
   UNDER_REVIEW: ["REVISION_REQUESTED", "APPROVED", "REJECTED", "SUBMITTED"],
   REVISION_REQUESTED: ["SUBMITTED"],
   APPROVED: [],
@@ -28,7 +28,7 @@ export function assertTransition(from: SubmissionStatus, to: SubmissionStatus): 
 }
 
 /** Locked states — student cannot edit/attach files */
-const LOCKED_STATES: SubmissionStatus[] = ["UNDER_REVIEW", "APPROVED", "REJECTED"];
+const LOCKED_STATES: SubmissionStatus[] = ["SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED"];
 
 export function assertEditable(status: SubmissionStatus): void {
   if (LOCKED_STATES.includes(status)) {
@@ -40,4 +40,10 @@ export function assertEditable(status: SubmissionStatus): void {
 
 export function isLocked(status: SubmissionStatus): boolean {
   return LOCKED_STATES.includes(status);
+}
+
+export function canRecallSubmission(status: SubmissionStatus, dueDate: Date | null): boolean {
+  if (status !== "SUBMITTED") return false;
+  if (dueDate && new Date() >= new Date(dueDate)) return false;
+  return true;
 }

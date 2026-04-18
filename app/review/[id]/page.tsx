@@ -32,7 +32,12 @@ export default async function ReviewDetailPage({
     where: { id: parseInt(id) },
     include: {
       student: { select: { fullName: true, email: true, mentorId: true } },
-      assignment: { include: { lesson: { include: { course: { select: { authorId: true } } } } } },
+      assignment: {
+        include: {
+          lesson: { include: { course: { select: { authorId: true } } } },
+          course: { select: { authorId: true } },
+        },
+      },
       files: true,
       comments: {
         include: { author: { select: { fullName: true, role: true } } },
@@ -46,7 +51,8 @@ export default async function ReviewDetailPage({
   // MENTOR: only own mentees
   if (user.role === "MENTOR" && submission.student.mentorId !== user.id) redirect("/review");
   // INSTRUCTOR: only own courses
-  if (user.role === "INSTRUCTOR" && submission.assignment.lesson.course.authorId !== user.id) redirect("/review");
+  const courseAuthorId = submission.assignment.lesson?.course.authorId ?? submission.assignment.course?.authorId;
+  if (user.role === "INSTRUCTOR" && courseAuthorId !== user.id) redirect("/review");
 
   const statusLabel: Record<string, string> = {
     DRAFT: "ร่าง",

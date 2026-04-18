@@ -67,7 +67,10 @@ export default async function MenteeDetailPage({
     where: { studentId },
     include: {
       assignment: {
-        include: { lesson: { include: { course: { select: { title: true } } } } },
+        include: {
+          lesson: { include: { course: { select: { title: true } } } },
+          course: { select: { title: true } },
+        },
       },
       files: { select: { id: true } },
     },
@@ -149,7 +152,9 @@ export default async function MenteeDetailPage({
             <div key={sub.id} className="flex justify-between items-center text-sm border-b pb-2 last:border-0">
               <div>
                 <span className="font-medium">{sub.assignment.title}</span>
-                <span className="text-muted-foreground ml-2">— {sub.assignment.lesson.course.title}</span>
+                <span className="text-muted-foreground ml-2">
+                  — {sub.assignment.lesson?.course.title ?? sub.assignment.course?.title ?? ""}
+                </span>
               </div>
               <div className="flex gap-2 items-center">
                 <Badge variant={STATUS_VARIANT[sub.status] ?? "outline"}>

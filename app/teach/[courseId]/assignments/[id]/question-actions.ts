@@ -9,12 +9,16 @@ async function requireAuthorOfAssignment(assignmentId: number) {
   if (!canAuthor(user.role)) throw new Error("Forbidden");
   const assignment = await (prisma.assignment as any).findUnique({
     where: { id: assignmentId },
-    include: { lesson: { select: { courseId: true, course: { select: { authorId: true } } } } },
+    include: {
+      lesson: { select: { courseId: true, course: { select: { authorId: true } } } },
+      course: { select: { id: true, authorId: true } },
+    },
   });
   if (!assignment) throw new Error("Assignment not found");
-  if (user.role !== "ADMIN" && assignment.lesson.course.authorId !== user.id)
-    throw new Error("Forbidden");
-  return { user, courseId: assignment.lesson.courseId as number };
+  const authorId = assignment.lesson?.course.authorId ?? assignment.course?.authorId;
+  if (user.role !== "ADMIN" && authorId !== user.id) throw new Error("Forbidden");
+  const courseId = assignment.lesson?.courseId ?? assignment.course?.id;
+  return { user, courseId: courseId as number };
 }
 
 export async function addQuestion(assignmentId: number, formData: FormData) {

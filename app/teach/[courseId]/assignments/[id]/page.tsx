@@ -44,12 +44,15 @@ export default async function EditAssignmentPage({
     where: { id },
     include: {
       lesson: { include: { course: true } },
+      course: { select: { id: true, authorId: true } },
       attachments: { orderBy: { createdAt: "asc" } },
       questions: { orderBy: { order: "asc" } },
     },
   });
-  if (!assignment || assignment.lesson.courseId !== courseId) notFound();
-  if (user.role !== "ADMIN" && assignment.lesson.course.authorId !== user.id) redirect("/teach");
+  const assignmentCourseId = assignment?.lesson?.courseId ?? assignment?.course?.id;
+  if (!assignment || assignmentCourseId !== courseId) notFound();
+  const authorId = assignment.lesson?.course?.authorId ?? assignment.course?.authorId;
+  if (user.role !== "ADMIN" && authorId !== user.id) redirect("/teach");
 
   const submissionCount = await prisma.submission.count({ where: { assignmentId: id } });
   const questions: any[] = assignment.questions ?? [];

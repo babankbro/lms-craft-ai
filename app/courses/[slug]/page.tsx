@@ -9,6 +9,7 @@ import { Lock, AlertTriangle } from "lucide-react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { QuizStateBadge } from "./_components/quiz-state-badge";
+import { AssignmentPanel } from "./lessons/[lessonId]/_components/assignment-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,29 @@ export default async function CourseDetailPage({
       }
     }
   }
+
+  // Course-level assignments (lessonId = null) — only for enrolled students or staff
+  const courseAssignmentsWithSubs = isApproved || isStaff
+    ? await (async () => {
+        const assignments = await prisma.assignment.findMany({
+          where: { courseId: course.id, lessonId: null },
+          include: { questions: { orderBy: { order: "asc" } } },
+          orderBy: { createdAt: "asc" },
+        });
+        const subs = assignments.length > 0
+          ? await prisma.submission.findMany({
+              where: { assignmentId: { in: assignments.map((a) => a.id) }, studentId: user.id },
+              include: {
+                files: true,
+                answers: { include: { files: true } },
+              },
+              orderBy: { updatedAt: "desc" },
+            })
+          : [];
+        const subByAssignment = new Map(subs.map((s) => [s.assignmentId, s]));
+        return assignments.map((a) => ({ assignment: a, submission: subByAssignment.get(a.id) ?? null }));
+      })()
+    : [];
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -271,6 +295,36 @@ export default async function CourseDetailPage({
           <p className="text-center text-muted-foreground py-8">ยังไม่มีบทเรียน</p>
         )}
       </div>
+
+      {/* Course-level assignments */}
+      {courseAssignmentsWithSubs.length > 0 && (
+        <div className="mt-8 space-y-4">
+          <h2 className="text-lg font-semibold border-b pb-1">งานระดับวิชา</h2>
+          {courseAssignmentsWithSubs.map(({ assignment, submission }) => (
+            <AssignmentPanel
+              key={assignment.id}
+              assignment={{
+                ...assignment,
+                questions: assignment.questions.map((q) => ({
+                  ...q,
+                  maxLength: q.maxLength ?? null,
+                  maxFiles: q.maxFiles ?? null,
+                })),
+              }}
+              submission={submission ? {
+                ...submission,
+                answers: submission.answers.map((a) => ({
+                  questionId: a.questionId,
+                  textAnswer: a.textAnswer,
+                  files: a.files,
+                })),
+              } : null}
+              courseSlug={course.slug}
+              lessonId={null}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

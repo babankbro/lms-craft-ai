@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/permissions";
-import { assertEditable } from "@/lib/submission-state";
+import { assertEditable, canRecallSubmission } from "@/lib/submission-state";
 import { revalidatePath } from "next/cache";
 import { NotificationType } from "@prisma/client";
 
@@ -57,7 +57,7 @@ export async function removeSubmissionFile(fileId: number) {
   revalidatePath("/submissions");
 }
 
-export async function submitSubmission(submissionId: number, slug: string, lessonId: number) {
+export async function submitSubmission(submissionId: number, slug: string, lessonId: number | null) {
   const user = await requireAuth();
   const sub = await requireStudentOwnsSubmission(submissionId, user.id);
   if (sub.status !== "DRAFT") throw new Error("Can only submit a DRAFT");
@@ -95,7 +95,8 @@ export async function submitSubmission(submissionId: number, slug: string, lesso
     });
   }
 
-  revalidatePath(`/courses/${slug}/lessons/${lessonId}`);
+  if (lessonId != null) revalidatePath(`/courses/${slug}/lessons/${lessonId}`);
+  else revalidatePath(`/courses/${slug}`);
   revalidatePath("/submissions");
 }
 
@@ -140,7 +141,7 @@ export async function attachAnswerFile(
   revalidatePath("/submissions");
 }
 
-export async function resubmitSubmission(submissionId: number, slug: string, lessonId: number) {
+export async function resubmitSubmission(submissionId: number, slug: string, lessonId: number | null) {
   const user = await requireAuth();
   const sub = await requireStudentOwnsSubmission(submissionId, user.id);
   if (sub.status !== "REVISION_REQUESTED") throw new Error("Can only resubmit after revision request");
@@ -174,6 +175,33 @@ export async function resubmitSubmission(submissionId: number, slug: string, les
     });
   }
 
-  revalidatePath(`/courses/${slug}/lessons/${lessonId}`);
+  if (lessonId != null) revalidatePath(`/courses/${slug}/lessons/${lessonId}`);
+  else revalidatePath(`/courses/${slug}`);
+  revalidatePath("/submissions");
+}
+
+export async function recallSubmission(submissionId: number, slug: string, lessonId: number | null) {
+  const user = await requireAuth();
+
+  const sub = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    select: {
+      studentId: true,
+      status: true,
+      assignment: { select: { dueDate: true } },
+    },
+  });
+  if (!sub) throw new Error("Submission not found");
+  if (sub.studentId !== user.id) throw new Error("Forbidden");
+  if (!canRecallSubmission(sub.status, sub.assignment.dueDate))
+    throw new Error("Cannot recall: deadline passed or submission is not in SUBMITTED state");
+
+  await prisma.submission.update({
+    where: { id: submissionId },
+    data: { status: "DRAFT", submittedAt: null },
+  });
+
+  if (lessonId != null) revalidatePath(`/courses/${slug}/lessons/${lessonId}`);
+  else revalidatePath(`/courses/${slug}`);
   revalidatePath("/submissions");
 }

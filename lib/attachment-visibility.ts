@@ -20,13 +20,19 @@ export async function resolveFileAccess(
       where: { id: submissionId },
       include: {
         student: { select: { mentorId: true } },
-        assignment: { include: { lesson: { include: { course: { select: { authorId: true } } } } } },
+        assignment: {
+          include: {
+            lesson: { include: { course: { select: { authorId: true } } } },
+            course: { select: { authorId: true } },
+          },
+        },
       },
     });
     if (!submission) return false;
     if (submission.studentId === userId) return true;
     if (submission.student.mentorId === userId) return true;
-    if (submission.assignment.lesson.course.authorId === userId) return true;
+    const courseAuthorId = submission.assignment.lesson?.course.authorId ?? submission.assignment.course?.authorId;
+    if (courseAuthorId === userId) return true;
     return false;
   }
 
@@ -58,12 +64,14 @@ export async function resolveFileAccess(
 
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
-      include: { lesson: { select: { courseId: true } } },
+      include: { lesson: { select: { courseId: true } }, course: { select: { id: true } } },
     });
     if (!assignment) return false;
 
+    const courseId = assignment.lesson?.courseId ?? assignment.course?.id;
+    if (!courseId) return false;
     const enrollment = await prisma.enrollment.findUnique({
-      where: { userId_courseId: { userId, courseId: assignment.lesson.courseId } },
+      where: { userId_courseId: { userId, courseId } },
     });
     if (!enrollment || enrollment.status !== "APPROVED") return false;
 

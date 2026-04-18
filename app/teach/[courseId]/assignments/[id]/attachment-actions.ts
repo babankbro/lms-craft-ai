@@ -10,10 +10,14 @@ async function requireAssignmentAuthor(assignmentId: number) {
   if (!canAuthor(user.role)) throw new Error("Forbidden");
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId },
-    include: { lesson: { include: { course: { select: { authorId: true, id: true } } } } },
+    include: {
+      lesson: { include: { course: { select: { authorId: true, id: true } } } },
+      course: { select: { authorId: true, id: true } },
+    },
   });
   if (!assignment) throw new Error("Assignment not found");
-  if (user.role !== "ADMIN" && assignment.lesson.course.authorId !== user.id) {
+  const authorId = assignment.lesson?.course.authorId ?? assignment.course?.authorId;
+  if (user.role !== "ADMIN" && authorId !== user.id) {
     throw new Error("Forbidden: not course author");
   }
   return { user, assignment };

@@ -11,7 +11,7 @@ async function requireReviewAccess(submissionId: number) {
 
   const submission = await prisma.submission.findUnique({
     where: { id: submissionId },
-    include: { assignment: { include: { lesson: { include: { course: true } } } } },
+    include: { assignment: { include: { lesson: { include: { course: true } }, course: true } } },
   });
   if (!submission) throw new Error("Submission not found");
 
@@ -22,8 +22,8 @@ async function requireReviewAccess(submissionId: number) {
   }
   // INSTRUCTOR: only own courses
   if (user.role === "INSTRUCTOR") {
-    const course = submission.assignment.lesson.course;
-    if (course.authorId !== user.id) throw new Error("Forbidden: not your course");
+    const course = submission.assignment.lesson?.course ?? submission.assignment.course;
+    if (!course || course.authorId !== user.id) throw new Error("Forbidden: not your course");
   }
 
   return { user, submission };

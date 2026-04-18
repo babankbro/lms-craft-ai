@@ -85,6 +85,7 @@ model Course {
   certificates       Certificate[]
   quizzes            Quiz[]
   observationVideos  ObservationVideo[]
+  assignments        Assignment[]       @relation("CourseAssignments")
 
   preTestQuizId  Int?  @map("pre_test_quiz_id")
   postTestQuizId Int?  @map("post_test_quiz_id")
@@ -179,7 +180,8 @@ enum SubmissionStatus {
 
 model Assignment {
   id           Int       @id @default(autoincrement())
-  lessonId     Int       @map("lesson_id")
+  lessonId     Int?      @map("lesson_id")
+  courseId     Int?      @map("course_id")
   title        String
   description  String    @db.Text
   maxFileSize  Int       @default(10485760) @map("max_file_size")
@@ -187,7 +189,8 @@ model Assignment {
   dueDate      DateTime? @map("due_date")
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  lesson      Lesson                 @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson      Lesson?                @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  course      Course?                @relation("CourseAssignments", fields: [courseId], references: [id], onDelete: Cascade)
   submissions Submission[]
   attachments AssignmentAttachment[]
   questions   AssignmentQuestion[]

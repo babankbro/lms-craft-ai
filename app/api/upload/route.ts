@@ -6,6 +6,8 @@ import { s3Client, BUCKET_NAME } from "@/lib/minio";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import { sniffMime } from "@/lib/mime-sniff";
+import { prisma } from "@/lib/prisma";
+import { isLocked } from "@/lib/submission-state";
 
 // Per-prefix config: [maxBytes, allowedMimeTypes, requiredRole]
 const PREFIX_CONFIG: Record<
@@ -69,6 +71,23 @@ export async function POST(request: NextRequest) {
   if (cfg.needsAuthor && !canAuthor(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
+
+  // For submissions: verify the uploading user owns the submission and it is editable
+  if (prefixKey === "submissions") {
+    const submissionId = parseInt(prefix.split("/")[1], 10);
+    if (!isNaN(submissionId)) {
+      const sub = await prisma.submission.findUnique({
+        where: { id: submissionId },
+        select: { studentId: true, status: true },
+      });
+      if (!sub) return NextResponse.json({ error: "SUBMISSION_NOT_FOUND" }, { status: 404 });
+      if (sub.studentId !== session.user.id)
+        return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+      if (isLocked(sub.status))
+        return NextResponse.json({ error: "SUBMISSION_LOCKED", status: sub.status }, { status: 409 });
+    }
+  }
+
   // needsAnyAuth already satisfied by session check above
 
   if (file.size > cfg.maxBytes) {

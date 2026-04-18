@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/prisma";
 import { requireAuth, canReview } from "@/lib/permissions";
+import { canRecallSubmission } from "@/lib/submission-state";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { addComment } from "@/app/review/actions";
+import { RecallButton } from "../_components/recall-button";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +32,13 @@ export default async function SubmissionDetailPage({
     where: { id: submissionId },
     include: {
       assignment: {
-        include: { lesson: { include: { course: { select: { slug: true, title: true } } } } },
+        select: {
+          title: true,
+          description: true,
+          dueDate: true,
+          lesson: { include: { course: { select: { slug: true, title: true } } } },
+          course: { select: { slug: true, title: true } },
+        },
       },
       files: true,
       comments: {
@@ -48,8 +56,8 @@ export default async function SubmissionDetailPage({
   if (!isOwner && !isReviewer) redirect("/dashboard");
 
   const isReviewed = canReview(user.role);
-  const slug = submission.assignment.lesson.course.slug;
-  const lessonId = submission.assignment.lesson.id;
+  const slug = submission.assignment.lesson?.course.slug ?? submission.assignment.course?.slug ?? "";
+  const lessonId = submission.assignment.lesson?.id ?? null;
 
   // Filter internal comments for students
   const visibleComments = submission.comments.filter(
@@ -62,9 +70,16 @@ export default async function SubmissionDetailPage({
         <div>
           <Link href="/submissions" className="text-sm text-muted-foreground hover:underline">← งานของฉัน</Link>
           <h1 className="text-2xl font-bold mt-1">{submission.assignment.title}</h1>
-          <p className="text-muted-foreground">{submission.assignment.lesson.course.title}</p>
+          <p className="text-muted-foreground">
+            {submission.assignment.lesson?.course.title ?? submission.assignment.course?.title ?? ""}
+          </p>
         </div>
-        <Badge>{STATUS_LABEL[submission.status] ?? submission.status}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge>{STATUS_LABEL[submission.status] ?? submission.status}</Badge>
+          {isOwner && canRecallSubmission(submission.status, submission.assignment.dueDate) && (
+            <RecallButton submissionId={submissionId} />
+          )}
+        </div>
       </div>
 
       {/* Score */}
@@ -118,10 +133,10 @@ export default async function SubmissionDetailPage({
           <CardHeader><CardTitle>ส่งงานใหม่</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-3">
-              อัปโหลดไฟล์ใหม่ผ่านหน้าบทเรียน แล้วกดส่งงานใหม่
+              อัปโหลดไฟล์ใหม่ผ่านหน้า{lessonId ? "บทเรียน" : "วิชา"} แล้วกดส่งงานใหม่
             </p>
-            <Link href={`/courses/${slug}/lessons/${lessonId}`}>
-              <Button variant="outline">ไปหน้าบทเรียน</Button>
+            <Link href={lessonId ? `/courses/${slug}/lessons/${lessonId}` : `/courses/${slug}`}>
+              <Button variant="outline">ไปหน้า{lessonId ? "บทเรียน" : "วิชา"}</Button>
             </Link>
           </CardContent>
         </Card>

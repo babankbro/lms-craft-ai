@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canTransition, assertTransition, assertEditable, isLocked } from "@/lib/submission-state";
+import { canTransition, assertTransition, assertEditable, isLocked, canRecallSubmission } from "@/lib/submission-state";
 import type { SubmissionStatus } from "@prisma/client";
 
 describe("canTransition", () => {
@@ -33,6 +33,9 @@ describe("canTransition", () => {
   it("REJECTED → SUBMITTED is illegal", () => {
     expect(canTransition("REJECTED", "SUBMITTED")).toBe(false);
   });
+  it("SUBMITTED → DRAFT is legal (recall before deadline)", () => {
+    expect(canTransition("SUBMITTED", "DRAFT")).toBe(true);
+  });
 });
 
 describe("assertTransition", () => {
@@ -51,6 +54,9 @@ describe("assertEditable", () => {
   it("does not throw for REVISION_REQUESTED", () => {
     expect(() => assertEditable("REVISION_REQUESTED")).not.toThrow();
   });
+  it("throws for SUBMITTED — student cannot edit after submitting", () => {
+    expect(() => assertEditable("SUBMITTED")).toThrow();
+  });
   it("throws for UNDER_REVIEW", () => {
     expect(() => assertEditable("UNDER_REVIEW")).toThrow();
   });
@@ -62,9 +68,33 @@ describe("assertEditable", () => {
   });
 });
 
+describe("canRecallSubmission", () => {
+  const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const past   = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+
+  it("allows recall when SUBMITTED and deadline is in the future", () => {
+    expect(canRecallSubmission("SUBMITTED", future)).toBe(true);
+  });
+  it("allows recall when SUBMITTED and no deadline", () => {
+    expect(canRecallSubmission("SUBMITTED", null)).toBe(true);
+  });
+  it("blocks recall when SUBMITTED but deadline has passed", () => {
+    expect(canRecallSubmission("SUBMITTED", past)).toBe(false);
+  });
+  it("blocks recall when UNDER_REVIEW regardless of deadline", () => {
+    expect(canRecallSubmission("UNDER_REVIEW", future)).toBe(false);
+  });
+  it("blocks recall when APPROVED", () => {
+    expect(canRecallSubmission("APPROVED", null)).toBe(false);
+  });
+  it("blocks recall when DRAFT (nothing to recall)", () => {
+    expect(canRecallSubmission("DRAFT", null)).toBe(false);
+  });
+});
+
 describe("isLocked", () => {
-  const locked: SubmissionStatus[] = ["UNDER_REVIEW", "APPROVED", "REJECTED"];
-  const unlocked: SubmissionStatus[] = ["DRAFT", "SUBMITTED", "REVISION_REQUESTED"];
+  const locked: SubmissionStatus[] = ["SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED"];
+  const unlocked: SubmissionStatus[] = ["DRAFT", "REVISION_REQUESTED"];
   locked.forEach((s) => it(`${s} is locked`, () => expect(isLocked(s)).toBe(true)));
   unlocked.forEach((s) => it(`${s} is not locked`, () => expect(isLocked(s)).toBe(false)));
 });

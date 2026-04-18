@@ -82,13 +82,19 @@ export async function canAccessSubmission(
     where: { id: submissionId },
     include: {
       student: { select: { mentorId: true } },
-      assignment: { include: { lesson: { include: { course: { select: { authorId: true } } } } } },
+      assignment: {
+        include: {
+          lesson: { include: { course: { select: { authorId: true } } } },
+          course: { select: { authorId: true } },
+        },
+      },
     },
   });
   if (!submission) return false;
   if (submission.studentId === viewer.id) return true;
   if (submission.student.mentorId === viewer.id) return true;
-  if (submission.assignment.lesson.course.authorId === viewer.id) return true;
+  const courseAuthorId = submission.assignment.lesson?.course.authorId ?? submission.assignment.course?.authorId;
+  if (courseAuthorId === viewer.id) return true;
   return false;
 }
 
