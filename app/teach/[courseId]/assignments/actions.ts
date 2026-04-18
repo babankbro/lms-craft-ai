@@ -51,6 +51,33 @@ export async function createAssignment(lessonId: number, courseId: number, formD
   redirect(`/teach/${courseId}/assignments`);
 }
 
+export async function createCourseAssignmentFromTeach(courseId: number, formData: FormData) {
+  await requireCourseAuthor(courseId);
+
+  const data = AssignmentSchema.parse({
+    title: formData.get("title"),
+    description: formData.get("description") || "",
+    maxFileSizeMB: formData.get("maxFileSizeMB") || 10,
+    allowedTypes: formData.get("allowedTypes") || "application/pdf,image/jpeg,image/png",
+    dueDate: formData.get("dueDate") || undefined,
+  });
+
+  await prisma.assignment.create({
+    data: {
+      courseId,
+      lessonId: null,
+      title: data.title,
+      description: data.description,
+      maxFileSize: data.maxFileSizeMB * 1024 * 1024,
+      allowedTypes: data.allowedTypes.split(",").map((t) => t.trim()),
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+    },
+  });
+
+  revalidatePath(`/teach/${courseId}`);
+  redirect(`/teach/${courseId}/assignments`);
+}
+
 export async function updateAssignment(id: number, courseId: number, formData: FormData) {
   await requireCourseAuthor(courseId);
 
