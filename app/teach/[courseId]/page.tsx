@@ -69,7 +69,7 @@ export default async function TeachCourseWorkbenchPage({
   if (course.authorId !== user.id && user.role !== "ADMIN") redirect("/teach");
 
   const assignmentCount = await prisma.assignment.count({
-    where: { lesson: { courseId: id } },
+    where: { OR: [{ lesson: { courseId: id } }, { courseId: id, lessonId: null }] },
   });
 
   return (

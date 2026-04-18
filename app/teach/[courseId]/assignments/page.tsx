@@ -19,20 +19,27 @@ export default async function CourseAssignmentsPage({
   const { courseId: courseIdStr } = await params;
   const courseId = parseInt(courseIdStr);
 
-  const course = await prisma.course.findUnique({
-    where: { id: courseId },
-    include: {
-      lessons: {
-        orderBy: { order: "asc" },
-        include: {
-          assignments: {
-            include: { _count: { select: { submissions: true } } },
-            orderBy: { createdAt: "asc" },
+  const [course, courseAssignments] = await Promise.all([
+    prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        lessons: {
+          orderBy: { order: "asc" },
+          include: {
+            assignments: {
+              include: { _count: { select: { submissions: true } } },
+              orderBy: { createdAt: "asc" },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.assignment.findMany({
+      where: { courseId, lessonId: null },
+      include: { _count: { select: { submissions: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
 
   if (!course) notFound();
   if (user.role !== "ADMIN" && course.authorId !== user.id) redirect("/teach");
@@ -48,6 +55,46 @@ export default async function CourseAssignmentsPage({
         </div>
       </div>
 
+      {/* Course-level assignments */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-base">งานระดับวิชา ({courseAssignments.length})</CardTitle>
+            <Link href={`/teach/${courseId}/assignments/new?scope=course`}>
+              <Button variant="outline" size="sm">+ เพิ่มงานระดับวิชา</Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {courseAssignments.map((a) => (
+            <div key={a.id} className="flex items-center justify-between border rounded-md p-3">
+              <div>
+                <p className="font-medium">{a.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  {a._count.submissions} การส่งงาน
+                  {a.dueDate && ` · กำหนด ${new Date(a.dueDate).toLocaleDateString("th-TH")}`}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Link href={`/teach/${courseId}/assignments/${a.id}`}>
+                  <Button variant="outline" size="sm">แก้ไข</Button>
+                </Link>
+                <form action={deleteAssignment.bind(null, a.id, courseId, false)}>
+                  <Button type="submit" variant="ghost" size="sm"
+                    disabled={a._count.submissions > 0}>
+                    ลบ
+                  </Button>
+                </form>
+              </div>
+            </div>
+          ))}
+          {courseAssignments.length === 0 && (
+            <p className="text-sm text-muted-foreground">ยังไม่มีงานระดับวิชา</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Per-lesson assignments */}
       {course.lessons.map((lesson) => (
         <Card key={lesson.id}>
           <CardHeader>
