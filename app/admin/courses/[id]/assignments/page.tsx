@@ -62,7 +62,7 @@ export default async function CourseAssignmentsPage({
                   <TableHead>ชื่องาน</TableHead>
                   <TableHead>กำหนดส่ง</TableHead>
                   <TableHead>งานที่ส่ง</TableHead>
-                  <TableHead>ลบ</TableHead>
+                  <TableHead>จัดการ</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -80,11 +80,16 @@ export default async function CourseAssignmentsPage({
                     </TableCell>
                     <TableCell>{a._count.submissions}</TableCell>
                     <TableCell>
-                      <DeleteAssignmentButton
-                        assignmentId={a.id}
-                        courseId={courseId}
-                        hasSubmissions={a._count.submissions > 0}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Link href={`/admin/courses/${courseId}/assignments/${a.id}`} className="text-primary hover:underline text-sm">
+                          แก้ไข
+                        </Link>
+                        <DeleteAssignmentButton
+                          assignmentId={a.id}
+                          courseId={courseId}
+                          hasSubmissions={a._count.submissions > 0}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
