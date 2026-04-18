@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { updateCourse, deleteCourse, togglePublish, setCoursePreTest, setCoursePostTest } from "../actions";
 import { deleteLesson } from "./lessons/actions";
-import { createSectionAdmin, updateSectionAdmin, deleteSectionAdmin } from "./sections/actions";
+import { createSectionAdmin, updateSectionAdmin, deleteSectionAdmin, attachSectionQuizAdmin, detachSectionQuizAdmin } from "./sections/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -292,18 +292,58 @@ export default async function AdminCourseDetailPage({
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {(course.sections as any[]).map((section: any) => (
-            <div key={section.id} className="flex items-center gap-2 p-2 border rounded-md">
-              <form action={updateSectionAdmin.bind(null, section.id, courseId)} className="flex-1 flex gap-2">
-                <Input name="title" defaultValue={section.title} className="h-8 text-sm" required />
-                <Button type="submit" variant="outline" size="sm" className="h-8 shrink-0">บันทึก</Button>
-              </form>
-              <span className="text-xs text-muted-foreground shrink-0">{section.lessons.length} บทเรียน</span>
-              <form action={deleteSectionAdmin.bind(null, section.id, courseId)}>
-                <Button type="submit" variant="ghost" size="sm" className="h-8 text-destructive shrink-0">ลบ</Button>
-              </form>
-            </div>
-          ))}
+          {(course.sections as any[]).map((section: any) => {
+            const attachedQuizIds = (section.sectionQuizzes as any[]).map((sq: any) => sq.quizId);
+            const availableQuizzes = (course.quizzes as any[]).filter((q: any) => !attachedQuizIds.includes(q.id));
+            return (
+              <div key={section.id} className="border rounded-md p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <form action={updateSectionAdmin.bind(null, section.id, courseId)} className="flex-1 flex gap-2">
+                    <Input name="title" defaultValue={section.title} className="h-8 text-sm" required />
+                    <Button type="submit" variant="outline" size="sm" className="h-8 shrink-0">บันทึก</Button>
+                  </form>
+                  <span className="text-xs text-muted-foreground shrink-0">{section.lessons.length} บทเรียน</span>
+                  <form action={deleteSectionAdmin.bind(null, section.id, courseId)}>
+                    <Button type="submit" variant="ghost" size="sm" className="h-8 text-destructive shrink-0">ลบ</Button>
+                  </form>
+                </div>
+
+                {/* Attached quizzes */}
+                {(section.sectionQuizzes as any[]).length > 0 && (
+                  <div className="flex flex-wrap gap-2 pl-1">
+                    {(section.sectionQuizzes as any[]).map((sq: any) => (
+                      <div key={sq.id} className="flex items-center gap-1 text-xs border rounded px-2 py-1 bg-amber-50">
+                        <span>🧩 {sq.quiz.title} · {sq.placement === "BEFORE" ? "ก่อนหมวด" : "หลังหมวด"}</span>
+                        <form action={detachSectionQuizAdmin.bind(null, section.id, sq.quizId, courseId)} className="inline">
+                          <button type="submit" className="text-destructive hover:underline ml-1">✕</button>
+                        </form>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Attach quiz form */}
+                {availableQuizzes.length > 0 && (
+                  <form action={attachSectionQuizAdmin.bind(null, section.id, courseId)} className="flex gap-2 pl-1">
+                    <select name="quizId" className="h-7 rounded border text-xs px-1 flex-1">
+                      {availableQuizzes.map((q: any) => (
+                        <option key={q.id} value={q.id}>{q.title}</option>
+                      ))}
+                    </select>
+                    <select name="placement" className="h-7 rounded border text-xs px-1">
+                      <option value="AFTER">หลังหมวด</option>
+                      <option value="BEFORE">ก่อนหมวด</option>
+                    </select>
+                    <select name="isGate" className="h-7 rounded border text-xs px-1">
+                      <option value="true">Gate</option>
+                      <option value="false">ไม่ Gate</option>
+                    </select>
+                    <Button type="submit" size="sm" variant="outline" className="h-7 text-xs shrink-0">เชื่อม</Button>
+                  </form>
+                )}
+              </div>
+            );
+          })}
           <form action={createSectionAdmin.bind(null, courseId)} className="flex gap-2 pt-2 border-t">
             <Input name="title" placeholder="ชื่อหมวดใหม่" className="h-8 text-sm" required />
             <Button type="submit" size="sm" className="h-8 shrink-0">+ เพิ่มหมวด</Button>

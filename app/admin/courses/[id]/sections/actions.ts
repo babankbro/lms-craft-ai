@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
+import { attachSectionQuiz, detachSectionQuiz } from "@/app/teach/[courseId]/sections/actions";
 
 async function assertCourseAccess(courseId: number) {
   await requireRole("INSTRUCTOR", "ADMIN");
@@ -38,4 +39,27 @@ export async function deleteSectionAdmin(sectionId: number, courseId: number) {
   await prisma.courseSection.delete({ where: { id: sectionId } });
   revalidatePath(`/admin/courses/${courseId}`);
   revalidatePath(`/teach/${courseId}`);
+}
+
+export async function attachSectionQuizAdmin(
+  sectionId: number,
+  courseId: number,
+  formData: FormData,
+) {
+  await requireRole("INSTRUCTOR", "ADMIN");
+  const quizId = parseInt(formData.get("quizId") as string);
+  const placement = (formData.get("placement") as "BEFORE" | "AFTER") ?? "AFTER";
+  const isGate = formData.get("isGate") === "true";
+  await attachSectionQuiz(sectionId, quizId, isGate, placement);
+  revalidatePath(`/admin/courses/${courseId}`);
+}
+
+export async function detachSectionQuizAdmin(
+  sectionId: number,
+  quizId: number,
+  courseId: number,
+) {
+  await requireRole("INSTRUCTOR", "ADMIN");
+  await detachSectionQuiz(sectionId, quizId);
+  revalidatePath(`/admin/courses/${courseId}`);
 }
