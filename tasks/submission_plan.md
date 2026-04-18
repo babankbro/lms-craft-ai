@@ -73,16 +73,14 @@ DB Migration: lessonId nullable + courseId on Assignment  ✅
 - **T5** `app/courses/[slug]/page.tsx` — added query + AssignmentPanel render ✅
 - All downstream `lesson?` null guards applied ✅
 
-### Phase 4 — Seed mockup data — NEXT
+### Phase 4 — Seed mockup data — DONE ✅
 **Checkpoint:** `npm run db:seed` creates 2 course-level assignments and DRAFT submissions for student1–2.
 
-- **T6** `prisma/seed.ts`
-  - Add 2 course-level assignments on `intro-to-teaching` (inside `if (!existingCourse)` block)
-  - Create DRAFT submissions for student1 and student2 on course assignment 1
-  - Idempotent: skip if already exists
-  - AC: After `db:seed`, admin sees 2 assignments at `/admin/courses/<id>/assignments`
-  - AC: student1 sees panel on course overview with pre-filled DRAFT answers
-  - AC: Build passes; `npm run db:seed` exits 0
+- **T6** `prisma/seed.ts` ✅
+  - 2 course-level assignments: "Final Reflection" (4Q) + "Feedback Survey" (3Q)
+  - DRAFT submissions for student1 (2 answers) and student2 (1 answer)
+  - Idempotent: skips if already exists
+  - Tests: `tests/unit/course-assignment-seed.test.ts` (9 tests, all GREEN)
 
 ---
 
@@ -95,7 +93,7 @@ DB Migration: lessonId nullable + courseId on Assignment  ✅
 | T3 | List page renders; shows correct submission counts ✅ |
 | T4 | Create form works end-to-end ✅ |
 | T5 | Student can start, fill, upload, and submit a course assignment ✅ |
-| T6 | Seed creates demo course assignments + DRAFT submissions |
+| T6 | Seed creates demo course assignments + DRAFT submissions ✅ |
 
 ---
 
