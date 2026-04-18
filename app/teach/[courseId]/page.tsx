@@ -51,14 +51,23 @@ export default async function TeachCourseWorkbenchPage({
       sections: {
         orderBy: { order: "asc" },
         include: {
-          lessons: { orderBy: { order: "asc" }, include: { _count: { select: { attachments: true, lessonQuizzes: true } } } },
+          lessons: {
+            orderBy: { order: "asc" },
+            include: {
+              _count: { select: { attachments: true } },
+              lessonQuizzes: { include: { quiz: { select: { type: true } } } },
+            },
+          },
           sectionQuizzes: { include: { quiz: { select: { id: true, title: true, type: true } } } },
         },
       },
       lessons: {
         where: { sectionId: null },
         orderBy: { order: "asc" },
-        include: { _count: { select: { attachments: true, lessonQuizzes: true } } },
+        include: {
+          _count: { select: { attachments: true } },
+          lessonQuizzes: { include: { quiz: { select: { type: true } } } },
+        },
       },
       quizzes: { include: { _count: { select: { questions: true, attempts: true } } } },
       _count: { select: { enrollments: true } },
@@ -223,7 +232,8 @@ export default async function TeachCourseWorkbenchPage({
                   order: l.order,
                   sectionTitle: s.title,
                   attachmentCount: l._count.attachments,
-                  quizCount: l._count.lessonQuizzes,
+                  preQuizCount: (l.lessonQuizzes as any[]).filter((lq: any) => lq.quiz.type === "PRE_TEST").length,
+                  postQuizCount: (l.lessonQuizzes as any[]).filter((lq: any) => lq.quiz.type !== "PRE_TEST").length,
                   courseId: course.id,
                 }))
               ),
@@ -233,7 +243,8 @@ export default async function TeachCourseWorkbenchPage({
                 order: l.order,
                 sectionTitle: undefined,
                 attachmentCount: l._count.attachments,
-                quizCount: l._count.lessonQuizzes,
+                preQuizCount: (l.lessonQuizzes as any[]).filter((lq: any) => lq.quiz.type === "PRE_TEST").length,
+                postQuizCount: (l.lessonQuizzes as any[]).filter((lq: any) => lq.quiz.type !== "PRE_TEST").length,
                 courseId: course.id,
               })),
             ]}

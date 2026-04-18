@@ -7,22 +7,14 @@ import {
   deleteQuestion,
   addChoice,
   deleteChoice,
-  attachQuizToLesson,
-  detachQuizFromLesson,
 } from "@/app/teach/actions";
+import { linkQuizTarget } from "@/app/teach/[courseId]/quizzes/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -46,6 +38,7 @@ export default async function QuizEditorPage({
         include: { choices: true },
       },
       lessonQuizzes: { include: { lesson: { select: { id: true, title: true } } } },
+      sectionQuizzes: { include: { section: { select: { id: true, title: true } } } },
       course: { select: { id: true, title: true, authorId: true } },
     },
   });
@@ -53,13 +46,32 @@ export default async function QuizEditorPage({
   if (!quiz || quiz.courseId !== cId) notFound();
   if (quiz.course?.authorId !== user.id && user.role !== "ADMIN") redirect("/teach");
 
-  const courseLessons = await prisma.lesson.findMany({
-    where: { courseId: cId },
-    orderBy: { order: "asc" },
-    select: { id: true, title: true },
-  });
+  const [courseLessons, courseSections] = await Promise.all([
+    prisma.lesson.findMany({
+      where: { courseId: cId },
+      orderBy: { order: "asc" },
+      select: { id: true, title: true, order: true },
+    }),
+    prisma.courseSection.findMany({
+      where: { courseId: cId },
+      orderBy: { order: "asc" },
+      select: { id: true, title: true },
+    }),
+  ]);
 
-  const linkedLessonIds = new Set(quiz.lessonQuizzes.map((lq) => lq.lessonId));
+  // Determine current single link (lesson takes priority if both exist somehow)
+  const linkedLesson = quiz.lessonQuizzes[0]?.lesson ?? null;
+  const linkedSection = quiz.sectionQuizzes[0]?.section ?? null;
+  const currentTargetValue = linkedLesson
+    ? `lesson:${linkedLesson.id}`
+    : linkedSection
+    ? `section:${linkedSection.id}`
+    : "none";
+  const currentTargetLabel = linkedLesson
+    ? linkedLesson.title
+    : linkedSection
+    ? linkedSection.title
+    : "ยังไม่เชื่อม";
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -84,14 +96,16 @@ export default async function QuizEditorPage({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">ประเภท</Label>
-                <Select name="type" defaultValue={quiz.type}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PRE_TEST">Pre-test</SelectItem>
-                    <SelectItem value="POST_TEST">Post-test</SelectItem>
-                    <SelectItem value="QUIZ">Quiz</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  id="type"
+                  name="type"
+                  defaultValue={quiz.type}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="PRE_TEST">Pre-test</option>
+                  <option value="POST_TEST">Post-test</option>
+                  <option value="QUIZ">Quiz</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="passingScore">คะแนนผ่าน (%)</Label>
@@ -114,30 +128,45 @@ export default async function QuizEditorPage({
 
       <Separator />
 
-      {/* Link to lessons */}
+      {/* Link to lesson / section */}
       <Card>
-        <CardHeader><CardTitle>เชื่อมกับบทเรียน</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {courseLessons.map((lesson) => {
-            const linked = linkedLessonIds.has(lesson.id);
-            return (
-              <div key={lesson.id} className="flex items-center justify-between p-2 border rounded">
-                <span className="text-sm">{lesson.title}</span>
-                {linked ? (
-                  <form action={detachQuizFromLesson.bind(null, qId, lesson.id)}>
-                    <Button type="submit" variant="outline" size="sm">ถอดออก</Button>
-                  </form>
-                ) : (
-                  <form action={attachQuizToLesson.bind(null, qId, lesson.id)}>
-                    <Button type="submit" size="sm">เชื่อม</Button>
-                  </form>
-                )}
-              </div>
-            );
-          })}
-          {courseLessons.length === 0 && (
-            <p className="text-sm text-muted-foreground">ยังไม่มีบทเรียนในหลักสูตรนี้</p>
-          )}
+        <CardHeader><CardTitle>เชื่อมกับบทเรียน / หมวด</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-3">
+            ปัจจุบัน: <span className="font-medium text-foreground">{currentTargetLabel}</span>
+          </p>
+          <form
+            action={linkQuizTarget.bind(null, qId, cId)}
+            className="flex items-center gap-3"
+          >
+            <select
+              name="target"
+              defaultValue={currentTargetValue}
+              onChange={undefined}
+              className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="none">ไม่เชื่อม</option>
+              {courseLessons.length > 0 && (
+                <optgroup label="บทเรียน">
+                  {courseLessons.map((l) => (
+                    <option key={l.id} value={`lesson:${l.id}`}>
+                      {l.order}. {l.title}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {courseSections.length > 0 && (
+                <optgroup label="หมวด">
+                  {courseSections.map((s) => (
+                    <option key={s.id} value={`section:${s.id}`}>
+                      {s.title}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            <Button type="submit" size="sm">บันทึก</Button>
+          </form>
         </CardContent>
       </Card>
 

@@ -30,7 +30,8 @@ type Lesson = {
   order: number;
   sectionTitle?: string;
   attachmentCount: number;
-  quizCount: number;
+  preQuizCount: number;
+  postQuizCount: number;
   courseId: number;
 };
 
@@ -64,7 +65,12 @@ function SortableLesson({ lesson }: { lesson: Lesson }) {
         <Badge variant="secondary" className="text-xs shrink-0">{lesson.sectionTitle}</Badge>
       )}
       <span className="text-xs text-muted-foreground shrink-0">{lesson.attachmentCount} ไฟล์</span>
-      <span className="text-xs text-muted-foreground shrink-0">{lesson.quizCount} quiz</span>
+      {lesson.preQuizCount > 0 && (
+        <Badge variant="secondary" className="text-xs shrink-0">Pre: {lesson.preQuizCount}</Badge>
+      )}
+      {lesson.postQuizCount > 0 && (
+        <Badge variant="outline" className="text-xs shrink-0">Post: {lesson.postQuizCount}</Badge>
+      )}
       <div className="flex gap-2 shrink-0">
         <Link href={`/teach/${lesson.courseId}/lessons/${lesson.id}`} className="text-primary hover:underline text-sm">แก้ไข</Link>
         <form action={deleteLesson.bind(null, lesson.id)}>

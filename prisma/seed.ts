@@ -259,6 +259,37 @@ async function main() {
       },
     });
 
+    // ── Lesson-linked quizzes (appear in student lesson view) ─────────────
+    const lessonPreQuiz = await prisma.quiz.create({
+      data: {
+        title: "ตรวจสอบความรู้เดิม: แนะนำหลักสูตร",
+        type: "PRE_TEST", passingScore: 0, maxAttempts: 1, courseId,
+        questions: {
+          create: [
+            { questionText: "คุณรู้จักหลักการ Active Learning มาก่อนหรือไม่?", points: 1, order: 1, choices: { create: [{ choiceText: "รู้จักดีมาก", isCorrect: true }, { choiceText: "เคยได้ยินแต่ไม่แน่ใจ", isCorrect: false }, { choiceText: "ไม่เคยได้ยิน", isCorrect: false }] } },
+            { questionText: "ครูในศตวรรษที่ 21 ควรมีบทบาทอย่างไร?", points: 1, order: 2, choices: { create: [{ choiceText: "ผู้ถ่ายทอดความรู้เพียงอย่างเดียว", isCorrect: false }, { choiceText: "ผู้อำนวยความสะดวกในการเรียนรู้", isCorrect: true }, { choiceText: "ผู้ควบคุมชั้นเรียน", isCorrect: false }] } },
+            { questionText: "ทักษะ 4C ในการศึกษาศตวรรษที่ 21 ได้แก่ข้อใด?", points: 1, order: 3, choices: { create: [{ choiceText: "Coding, Computing, Cyber, Cloud", isCorrect: false }, { choiceText: "Critical thinking, Collaboration, Communication, Creativity", isCorrect: true }, { choiceText: "Content, Context, Culture, Curriculum", isCorrect: false }] } },
+          ],
+        },
+      },
+    });
+    await prisma.lessonQuiz.create({ data: { lessonId: lesson1.id, quizId: lessonPreQuiz.id, order: 0 } });
+
+    const lessonPostQuiz = await prisma.quiz.create({
+      data: {
+        title: "ทดสอบความเข้าใจ: จิตวิทยาการศึกษา",
+        type: "POST_TEST", passingScore: 60, maxAttempts: 3, courseId,
+        questions: {
+          create: [
+            { questionText: "Constructivism เชื่อว่าผู้เรียนสร้างความรู้จากอะไร?", points: 1, order: 1, choices: { create: [{ choiceText: "การฟังคำบรรยายของครู", isCorrect: false }, { choiceText: "ประสบการณ์และการลงมือทำ", isCorrect: true }, { choiceText: "การอ่านตำราเพียงอย่างเดียว", isCorrect: false }] } },
+            { questionText: "ZPD คือช่วงระหว่างสิ่งที่นักเรียนทำได้คนเดียวกับ?", points: 1, order: 2, choices: { create: [{ choiceText: "สิ่งที่ครูบอกให้ทำ", isCorrect: false }, { choiceText: "สิ่งที่ทำได้เมื่อมีผู้ช่วยเหลือที่เหมาะสม", isCorrect: true }, { choiceText: "สิ่งที่นักเรียนเก่งที่สุดในห้องทำได้", isCorrect: false }] } },
+            { questionText: "ทฤษฎี Multiple Intelligences สอนให้ครูทำอะไร?", points: 1, order: 3, choices: { create: [{ choiceText: "ออกแบบการสอนให้ตอบสนองความถนัดที่หลากหลายของผู้เรียน", isCorrect: true }, { choiceText: "แยกนักเรียนตามระดับ IQ", isCorrect: false }, { choiceText: "สอนเน้นเฉพาะผู้เรียนที่เก่ง", isCorrect: false }] } },
+          ],
+        },
+      },
+    });
+    await prisma.lessonQuiz.create({ data: { lessonId: lesson2.id, quizId: lessonPostQuiz.id, order: 0 } });
+
     // ── POST_TEST ──────────────────────────────────────────────────────────
     const postTest = await prisma.quiz.create({
       data: {
@@ -525,9 +556,52 @@ async function main() {
     if (Object.keys(needsUpdate).length > 0) {
       await prisma.course.update({ where: { id: courseId }, data: needsUpdate });
       console.log("✅ Fixed pre/postTestQuizId binding on existing course");
-    } else {
-      console.log("✅ Course already fully seeded — skipping");
     }
+
+    // Backfill lesson-linked quizzes if missing
+    const l1 = await prisma.lesson.findFirst({ where: { courseId, order: 10 }, select: { id: true } });
+    const l2 = await prisma.lesson.findFirst({ where: { courseId, order: 20 }, select: { id: true } });
+    if (l1) {
+      const existingPre = await prisma.quiz.findFirst({ where: { courseId, type: "PRE_TEST", lessonQuizzes: { some: { lessonId: l1.id } } } });
+      if (!existingPre) {
+        const lPreQuiz = await prisma.quiz.create({
+          data: {
+            title: "ตรวจสอบความรู้เดิม: แนะนำหลักสูตร",
+            type: "PRE_TEST", passingScore: 0, maxAttempts: 1, courseId,
+            questions: {
+              create: [
+                { questionText: "คุณรู้จักหลักการ Active Learning มาก่อนหรือไม่?", points: 1, order: 1, choices: { create: [{ choiceText: "รู้จักดีมาก", isCorrect: true }, { choiceText: "เคยได้ยินแต่ไม่แน่ใจ", isCorrect: false }, { choiceText: "ไม่เคยได้ยิน", isCorrect: false }] } },
+                { questionText: "ครูในศตวรรษที่ 21 ควรมีบทบาทอย่างไร?", points: 1, order: 2, choices: { create: [{ choiceText: "ผู้ถ่ายทอดความรู้เพียงอย่างเดียว", isCorrect: false }, { choiceText: "ผู้อำนวยความสะดวกในการเรียนรู้", isCorrect: true }, { choiceText: "ผู้ควบคุมชั้นเรียน", isCorrect: false }] } },
+                { questionText: "ทักษะ 4C ในการศึกษาศตวรรษที่ 21 ได้แก่ข้อใด?", points: 1, order: 3, choices: { create: [{ choiceText: "Coding, Computing, Cyber, Cloud", isCorrect: false }, { choiceText: "Critical thinking, Collaboration, Communication, Creativity", isCorrect: true }, { choiceText: "Content, Context, Culture, Curriculum", isCorrect: false }] } },
+              ],
+            },
+          },
+        });
+        await prisma.lessonQuiz.create({ data: { lessonId: l1.id, quizId: lPreQuiz.id, order: 0 } });
+        console.log("✅ Backfilled PRE_TEST lesson quiz for lesson1");
+      }
+    }
+    if (l2) {
+      const existingPost = await prisma.quiz.findFirst({ where: { courseId, type: "POST_TEST", lessonQuizzes: { some: { lessonId: l2.id } } } });
+      if (!existingPost) {
+        const lPostQuiz = await prisma.quiz.create({
+          data: {
+            title: "ทดสอบความเข้าใจ: จิตวิทยาการศึกษา",
+            type: "POST_TEST", passingScore: 60, maxAttempts: 3, courseId,
+            questions: {
+              create: [
+                { questionText: "Constructivism เชื่อว่าผู้เรียนสร้างความรู้จากอะไร?", points: 1, order: 1, choices: { create: [{ choiceText: "การฟังคำบรรยายของครู", isCorrect: false }, { choiceText: "ประสบการณ์และการลงมือทำ", isCorrect: true }, { choiceText: "การอ่านตำราเพียงอย่างเดียว", isCorrect: false }] } },
+                { questionText: "ZPD คือช่วงระหว่างสิ่งที่นักเรียนทำได้คนเดียวกับ?", points: 1, order: 2, choices: { create: [{ choiceText: "สิ่งที่ครูบอกให้ทำ", isCorrect: false }, { choiceText: "สิ่งที่ทำได้เมื่อมีผู้ช่วยเหลือที่เหมาะสม", isCorrect: true }, { choiceText: "สิ่งที่นักเรียนเก่งที่สุดในห้องทำได้", isCorrect: false }] } },
+                { questionText: "ทฤษฎี Multiple Intelligences สอนให้ครูทำอะไร?", points: 1, order: 3, choices: { create: [{ choiceText: "ออกแบบการสอนให้ตอบสนองความถนัดที่หลากหลายของผู้เรียน", isCorrect: true }, { choiceText: "แยกนักเรียนตามระดับ IQ", isCorrect: false }, { choiceText: "สอนเน้นเฉพาะผู้เรียนที่เก่ง", isCorrect: false }] } },
+              ],
+            },
+          },
+        });
+        await prisma.lessonQuiz.create({ data: { lessonId: l2.id, quizId: lPostQuiz.id, order: 0 } });
+        console.log("✅ Backfilled POST_TEST lesson quiz for lesson2");
+      }
+    }
+    console.log("✅ Course already seeded — skipping main creation");
   }
 
   // ── Mock Submissions (idempotent) ────────────────────────────────────────

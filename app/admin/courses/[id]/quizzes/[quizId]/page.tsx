@@ -15,9 +15,8 @@ import {
   deleteQuestion,
   addChoice,
   deleteChoice,
-  attachQuizToLesson,
-  detachQuizFromLesson,
 } from "@/app/teach/actions";
+import { linkQuizTarget } from "@/app/teach/[courseId]/quizzes/actions";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -40,21 +39,38 @@ export default async function AdminQuizEditPage({
         include: { choices: true },
       },
       lessonQuizzes: { include: { lesson: { select: { id: true, title: true } } } },
+      sectionQuizzes: { include: { section: { select: { id: true, title: true } } } },
     },
   });
 
   if (!quiz || quiz.courseId !== courseId) notFound();
 
-  const [courseLessons, attemptCount] = await Promise.all([
+  const [courseLessons, courseSections, attemptCount] = await Promise.all([
     prisma.lesson.findMany({
       where: { courseId },
       orderBy: { order: "asc" },
       select: { id: true, title: true, order: true },
     }),
+    prisma.courseSection.findMany({
+      where: { courseId },
+      orderBy: { order: "asc" },
+      select: { id: true, title: true },
+    }),
     prisma.quizAttempt.count({ where: { quizId: qId } }),
   ]);
 
-  const linkedLessonIds = new Set(quiz.lessonQuizzes.map((lq: any) => lq.lessonId));
+  const linkedLesson = (quiz.lessonQuizzes as any[])[0]?.lesson ?? null;
+  const linkedSection = (quiz.sectionQuizzes as any[])[0]?.section ?? null;
+  const currentTargetValue = linkedLesson
+    ? `lesson:${linkedLesson.id}`
+    : linkedSection
+    ? `section:${linkedSection.id}`
+    : "none";
+  const currentTargetLabel = linkedLesson
+    ? linkedLesson.title
+    : linkedSection
+    ? linkedSection.title
+    : "ยังไม่เชื่อม";
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
@@ -118,30 +134,44 @@ export default async function AdminQuizEditPage({
 
       <Separator />
 
-      {/* Lesson linking */}
+      {/* Lesson / section linking */}
       <Card>
-        <CardHeader><CardTitle>เชื่อมกับบทเรียน</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {courseLessons.map((lesson) => {
-            const linked = linkedLessonIds.has(lesson.id);
-            return (
-              <div key={lesson.id} className="flex items-center justify-between p-2 border rounded">
-                <span className="text-sm">{lesson.order}. {lesson.title}</span>
-                {linked ? (
-                  <form action={detachQuizFromLesson.bind(null, qId, lesson.id)}>
-                    <Button type="submit" variant="outline" size="sm">ถอดออก</Button>
-                  </form>
-                ) : (
-                  <form action={attachQuizToLesson.bind(null, qId, lesson.id)}>
-                    <Button type="submit" size="sm">เชื่อม</Button>
-                  </form>
-                )}
-              </div>
-            );
-          })}
-          {courseLessons.length === 0 && (
-            <p className="text-sm text-muted-foreground">ยังไม่มีบทเรียนในหลักสูตรนี้</p>
-          )}
+        <CardHeader><CardTitle>เชื่อมกับบทเรียน / หมวด</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-3">
+            ปัจจุบัน: <span className="font-medium text-foreground">{currentTargetLabel}</span>
+          </p>
+          <form
+            action={linkQuizTarget.bind(null, qId, courseId)}
+            className="flex items-center gap-3"
+          >
+            <select
+              name="target"
+              defaultValue={currentTargetValue}
+              className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="none">ไม่เชื่อม</option>
+              {courseLessons.length > 0 && (
+                <optgroup label="บทเรียน">
+                  {courseLessons.map((l) => (
+                    <option key={l.id} value={`lesson:${l.id}`}>
+                      {l.order}. {l.title}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {courseSections.length > 0 && (
+                <optgroup label="หมวด">
+                  {courseSections.map((s) => (
+                    <option key={s.id} value={`section:${s.id}`}>
+                      {s.title}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            <Button type="submit" size="sm">บันทึก</Button>
+          </form>
         </CardContent>
       </Card>
 
