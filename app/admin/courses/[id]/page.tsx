@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { updateCourse, deleteCourse, togglePublish, setCoursePreTest, setCoursePostTest } from "../actions";
 import { deleteLesson } from "./lessons/actions";
+import { createSectionAdmin, updateSectionAdmin, deleteSectionAdmin } from "./sections/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -278,6 +279,35 @@ export default async function AdminCourseDetailPage({
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Section Management */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>หมวดเนื้อหา ({(course.sections as any[]).length})</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(course.sections as any[]).map((section: any) => (
+            <div key={section.id} className="flex items-center gap-2 p-2 border rounded-md">
+              <form action={updateSectionAdmin.bind(null, section.id, courseId)} className="flex-1 flex gap-2">
+                <Input name="title" defaultValue={section.title} className="h-8 text-sm" required />
+                <Button type="submit" variant="outline" size="sm" className="h-8 shrink-0">บันทึก</Button>
+              </form>
+              <span className="text-xs text-muted-foreground shrink-0">{section.lessons.length} บทเรียน</span>
+              <form action={deleteSectionAdmin.bind(null, section.id, courseId)}>
+                <Button type="submit" variant="ghost" size="sm" className="h-8 text-destructive shrink-0">ลบ</Button>
+              </form>
+            </div>
+          ))}
+          <form action={createSectionAdmin.bind(null, courseId)} className="flex gap-2 pt-2 border-t">
+            <Input name="title" placeholder="ชื่อหมวดใหม่" className="h-8 text-sm" required />
+            <Button type="submit" size="sm" className="h-8 shrink-0">+ เพิ่มหมวด</Button>
+          </form>
         </CardContent>
       </Card>
 
