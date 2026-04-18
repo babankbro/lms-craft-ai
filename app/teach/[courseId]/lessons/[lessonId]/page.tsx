@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { updateLesson, deleteLesson, deleteLessonAttachment } from "@/app/teach/actions";
+import { deleteAssignment } from "@/app/teach/[courseId]/assignments/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ export default async function LessonEditorPage({
         },
       },
       lessonQuizzes: { include: { quiz: true } },
+      assignments: { include: { _count: { select: { submissions: true } } }, orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -156,6 +158,51 @@ export default async function LessonEditorPage({
           <div className="mt-4 p-4 border-2 border-dashed rounded-md text-center text-muted-foreground text-sm">
             อัปโหลดไฟล์แนบผ่าน API: POST /api/upload (prefix: lessons/{lId})
           </div>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Assignments */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>งานมอบหมาย ({lesson.assignments.length})</CardTitle>
+            <Link href={`/teach/${cId}/assignments/new?lessonId=${lId}`}>
+              <Button size="sm" variant="outline">+ เพิ่มงาน</Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {lesson.assignments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">ยังไม่มีงานมอบหมาย</p>
+          ) : (
+            <div className="space-y-2">
+              {lesson.assignments.map((a) => (
+                <div key={a.id} className="flex items-center justify-between p-3 border rounded-md">
+                  <div>
+                    <p className="font-medium text-sm">{a.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {a._count.submissions} การส่งงาน
+                      {a.dueDate && ` · กำหนด ${new Date(a.dueDate).toLocaleDateString("th-TH")}`}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link href={`/teach/${cId}/assignments/${a.id}`}>
+                      <Button variant="outline" size="sm">แก้ไข</Button>
+                    </Link>
+                    <form action={deleteAssignment.bind(null, a.id, cId, false)}>
+                      <Button type="submit" variant="ghost" size="sm"
+                        disabled={a._count.submissions > 0}
+                        className="text-destructive">
+                        ลบ
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
