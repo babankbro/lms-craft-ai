@@ -18,7 +18,10 @@ export default async function NewLessonPage({
   const { courseId } = await params;
   const id = parseInt(courseId);
 
-  const course = await prisma.course.findUnique({ where: { id } });
+  const course = await prisma.course.findUnique({
+    where: { id },
+    include: { sections: { orderBy: { order: "asc" }, select: { id: true, title: true } } },
+  });
   if (!course) notFound();
   if (course.authorId !== user.id && user.role !== "ADMIN") redirect("/teach");
 
@@ -61,6 +64,21 @@ export default async function NewLessonPage({
                 />
               </div>
             </div>
+            {course.sections.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="sectionId">หมวดเนื้อหา</Label>
+                <select
+                  id="sectionId"
+                  name="sectionId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">ไม่มีหมวด</option>
+                  {course.sections.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="youtubeUrl">YouTube URL (ไม่บังคับ)</Label>
               <Input

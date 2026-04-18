@@ -28,7 +28,12 @@ export default async function LessonEditorPage({
     where: { id: lId },
     include: {
       attachments: { orderBy: { createdAt: "desc" } },
-      course: { select: { id: true, title: true, authorId: true } },
+      course: {
+        select: {
+          id: true, title: true, authorId: true,
+          sections: { orderBy: { order: "asc" }, select: { id: true, title: true } },
+        },
+      },
       lessonQuizzes: { include: { quiz: true } },
     },
   });
@@ -69,6 +74,22 @@ export default async function LessonEditorPage({
                 <Input id="order" name="order" type="number" min={1} defaultValue={lesson.order} required />
               </div>
             </div>
+            {lesson.course.sections.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="sectionId">หมวดเนื้อหา</Label>
+                <select
+                  id="sectionId"
+                  name="sectionId"
+                  defaultValue={lesson.sectionId ?? ""}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">ไม่มีหมวด</option>
+                  {lesson.course.sections.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="youtubeUrl">YouTube URL</Label>

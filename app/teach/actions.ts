@@ -149,9 +149,15 @@ export async function createLesson(courseId: number, formData: FormData) {
     order: formData.get("order") || nextOrder,
   });
 
+  const sectionRaw = formData.get("sectionId") as string | null;
+  const sectionId = sectionRaw && sectionRaw !== "" && sectionRaw !== "none"
+    ? parseInt(sectionRaw, 10) || null
+    : null;
+
   const lesson = await prisma.lesson.create({
     data: {
       courseId,
+      sectionId,
       title: data.title,
       content: data.content,
       youtubeUrl: data.youtubeUrl || null,
@@ -170,6 +176,11 @@ export async function updateLesson(lessonId: number, formData: FormData) {
   const lesson = await prisma.lesson.findUniqueOrThrow({ where: { id: lessonId } });
   await requireCourseAuthor(lesson.courseId);
 
+  const sectionRaw = formData.get("sectionId") as string | null;
+  const sectionId = sectionRaw && sectionRaw !== "" && sectionRaw !== "none"
+    ? parseInt(sectionRaw, 10) || null
+    : null;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (prisma.lesson.update as any)({
     where: { id: lessonId },
@@ -181,6 +192,7 @@ export async function updateLesson(lessonId: number, formData: FormData) {
         ? parseInt(formData.get("estimatedMinutes") as string)
         : null,
       order: parseInt(formData.get("order") as string),
+      sectionId,
     },
   });
 
