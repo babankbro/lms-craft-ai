@@ -36,6 +36,11 @@ export async function createLesson(courseId: number, formData: FormData) {
 export async function updateLesson(lessonId: number, formData: FormData) {
   await requireRole("INSTRUCTOR", "ADMIN");
 
+  const sectionRaw = formData.get("sectionId") as string | null;
+  const sectionId = sectionRaw && sectionRaw !== "" && sectionRaw !== "none"
+    ? parseInt(sectionRaw, 10) || null
+    : null;
+
   const lesson = await prisma.lesson.update({
     where: { id: lessonId },
     data: {
@@ -43,6 +48,7 @@ export async function updateLesson(lessonId: number, formData: FormData) {
       content: formData.get("content") as string,
       youtubeUrl: (formData.get("youtubeUrl") as string) || null,
       order: parseInt(formData.get("order") as string),
+      sectionId,
     },
   });
 
