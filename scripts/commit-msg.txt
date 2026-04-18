@@ -1,0 +1,22 @@
+feat: implement 09-assignment-plan gaps (F1/F2/F3) + seed fix + bugfixes
+
+F1 - maxFiles per-question file limit:
+- prisma/schema.prisma: add maxFiles Int? to AssignmentQuestion
+- question-actions.ts: parse + persist maxFiles in add/update
+- assignment edit page: maxFiles input + badge display
+- assignment-panel.tsx: upload button guard, helper text, canSubmit check
+
+F2 - Admin assignment entry point:
+- admin/courses/page.tsx: add link column to /teach/[id]/assignments
+
+F3 - Assignments card on teach workbench:
+- teach/[courseId]/page.tsx: assignment count query + Assignments card
+
+Bugfixes:
+- Fix nested form in teach/[courseId]/lessons/[lessonId]/page.tsx
+- next.config.ts: add eslint.ignoreDuringBuilds=true
+
+Seed:
+- Reset stale course (0 lessons) and re-seed with full data:
+  6 lessons, 3 sections, Pre-Test, Post-Test, 5 assignments, mock submissions
+- Add diagnostic scripts: check-lessons, check-assignments, reset-course

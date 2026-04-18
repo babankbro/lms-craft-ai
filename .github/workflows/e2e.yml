@@ -1,0 +1,101 @@
+name: E2E Smoke Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mini_lms_test
+          POSTGRES_USER: lms
+          POSTGRES_PASSWORD: lms_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin123
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "mc ready local"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        # Workaround: minio needs the server command
+        # GitHub Actions services don't support cmd override; use a wrapper step below.
+
+    env:
+      DATABASE_URL: postgresql://lms:lms_test_password@localhost:5432/mini_lms_test
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-test-secret-32-bytes-minimum!!
+      S3_ENDPOINT: http://localhost:9000
+      S3_BUCKET: mini-lms-storage
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin123
+      S3_REGION: us-east-1
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup MinIO bucket
+        run: |
+          npm exec mc -- alias set local http://localhost:9000 minioadmin minioadmin123
+          npm exec mc -- mb --ignore-existing local/mini-lms-storage
+        continue-on-error: true
+
+      - name: Push Prisma schema
+        run: npx prisma db push --skip-generate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start Next.js server
+        run: npm start &
+        env:
+          PORT: 3000
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000/api/health --timeout 30000
+
+      - name: Run E2E tests
+        run: npx playwright test --project=chromium
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

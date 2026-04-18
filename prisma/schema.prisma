@@ -1,0 +1,600 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  MENTOR
+  INSTRUCTOR
+  ADMIN
+}
+
+enum EnrollmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  role         UserRole @default(STUDENT)
+  groupName    String?  @map("group_name")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  mentorId String? @map("mentor_id")
+  mentor   User?   @relation("Mentorship", fields: [mentorId], references: [id], onDelete: SetNull)
+  mentees  User[]  @relation("Mentorship")
+
+  authoredCourses Course[] @relation("CourseAuthor")
+
+  enrollments         Enrollment[]         @relation("EnrollmentUser")
+  enrollmentReviews   Enrollment[]         @relation("EnrollmentReviewer")
+  lessonProgress      LessonProgress[]
+  submissions         Submission[]
+  submissionComments  SubmissionComment[]
+  quizAttempts        QuizAttempt[]
+  certificates        Certificate[]
+  notifications       Notification[]
+  evaluationsGiven    Evaluation[]        @relation("EvaluatorRel")
+  evaluationsReceived Evaluation[]        @relation("EvaluateeRel")
+  selfEvaluations     SelfEvaluation[]
+  observationVideos   ObservationVideo[]  @relation("ObsVideoUploader")
+  observationScores        ObservationScore[]
+  assignmentAttachments    AssignmentAttachment[]
+  outboundEmails           OutboundEmail[]
+
+  @@map("users")
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model Course {
+  id                Int          @id @default(autoincrement())
+  title             String
+  slug              String       @unique
+  description       String?      @db.Text
+  coverImageKey     String?      @map("cover_image_key")
+  category          String?
+  level             CourseLevel?
+  authorId          String?      @map("author_id")
+  isPublished       Boolean      @default(false) @map("is_published")
+  publishedAt       DateTime?    @map("published_at")
+  requiresApproval  Boolean      @default(true) @map("requires_approval")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  author             User?              @relation("CourseAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  lessons            Lesson[]
+  sections           CourseSection[]
+  enrollments        Enrollment[]
+  certificates       Certificate[]
+  quizzes            Quiz[]
+  observationVideos  ObservationVideo[]
+
+  preTestQuizId  Int?  @map("pre_test_quiz_id")
+  postTestQuizId Int?  @map("post_test_quiz_id")
+  preTestQuiz    Quiz? @relation("CoursePreTest",  fields: [preTestQuizId],  references: [id], onDelete: SetNull)
+  postTestQuiz   Quiz? @relation("CoursePostTest", fields: [postTestQuizId], references: [id], onDelete: SetNull)
+
+  @@map("courses")
+}
+
+model Enrollment {
+  id           Int              @id @default(autoincrement())
+  userId       String           @map("user_id")
+  courseId     Int              @map("course_id")
+  status       EnrollmentStatus @default(PENDING) @map("status")
+  requestedAt  DateTime         @default(now()) @map("requested_at")
+  reviewedAt   DateTime?        @map("reviewed_at")
+  reviewedById String?          @map("reviewed_by_id")
+  rejectReason String?          @db.Text @map("reject_reason")
+
+  user       User    @relation("EnrollmentUser",     fields: [userId],       references: [id], onDelete: Cascade)
+  course     Course  @relation(fields: [courseId],   references: [id],       onDelete: Cascade)
+  reviewedBy User?   @relation("EnrollmentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, courseId])
+  @@index([courseId, status])
+  @@map("enrollments")
+}
+
+model CourseSection {
+  id          Int      @id @default(autoincrement())
+  courseId    Int      @map("course_id")
+  title       String
+  description String?  @db.Text
+  order       Int
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  course         Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons        Lesson[]
+  sectionQuizzes SectionQuiz[]
+
+  @@index([courseId, order])
+  @@map("course_sections")
+}
+
+model Lesson {
+  id               Int      @id @default(autoincrement())
+  courseId         Int      @map("course_id")
+  sectionId        Int?     @map("section_id")
+  title            String
+  content          String   @db.Text
+  youtubeUrl       String?  @map("youtube_url")
+  estimatedMinutes Int?     @map("estimated_minutes")
+  order            Int
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  section       CourseSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  progress      LessonProgress[]
+  assignments   Assignment[]
+  lessonQuizzes LessonQuiz[]
+  attachments   LessonAttachment[]
+
+  @@index([courseId, order])
+  @@map("lessons")
+}
+
+model LessonProgress {
+  id          Int       @id @default(autoincrement())
+  userId      String    @map("user_id")
+  lessonId    Int       @map("lesson_id")
+  isCompleted Boolean   @default(false) @map("is_completed")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@map("lesson_progress")
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUESTED
+  APPROVED
+  REJECTED
+}
+
+model Assignment {
+  id           Int       @id @default(autoincrement())
+  lessonId     Int       @map("lesson_id")
+  title        String
+  description  String    @db.Text
+  maxFileSize  Int       @default(10485760) @map("max_file_size")
+  allowedTypes String[]  @default(["application/pdf", "image/jpeg", "image/png"]) @map("allowed_types")
+  dueDate      DateTime? @map("due_date")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  lesson      Lesson                 @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+  attachments AssignmentAttachment[]
+  questions   AssignmentQuestion[]
+
+  @@map("assignments")
+}
+
+model AssignmentQuestion {
+  id           Int                  @id @default(autoincrement())
+  assignmentId Int                  @map("assignment_id")
+  order        Int                  @default(1)
+  prompt       String               @db.Text
+  responseType QuestionResponseType @default(TEXT) @map("response_type")
+  required     Boolean              @default(true)
+  maxLength    Int?                 @map("max_length")
+  maxFiles     Int?                 @map("max_files")
+
+  assignment Assignment         @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  answers    SubmissionAnswer[]
+
+  @@index([assignmentId, order])
+  @@map("assignment_questions")
+}
+
+model Submission {
+  id               Int              @id @default(autoincrement())
+  assignmentId     Int              @map("assignment_id")
+  studentId        String           @map("student_id")
+  status           SubmissionStatus @default(DRAFT)
+  score            Float?
+  maxScore         Float?           @map("max_score")
+  feedback         String?          @db.Text
+  reviewedBy       String?          @map("reviewed_by")
+  reviewedAt       DateTime?        @map("reviewed_at")
+  submittedAt      DateTime?        @map("submitted_at")
+  firstSubmittedAt DateTime?        @map("first_submitted_at")
+  reviewCycle      Int              @default(1) @map("review_cycle")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  assignment Assignment          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  files      SubmissionFile[]
+  comments   SubmissionComment[]
+  answers    SubmissionAnswer[]
+
+  @@map("submissions")
+}
+
+model SubmissionAnswer {
+  id           Int     @id @default(autoincrement())
+  submissionId Int     @map("submission_id")
+  questionId   Int     @map("question_id")
+  textAnswer   String? @db.Text @map("text_answer")
+
+  submission Submission         @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question   AssignmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  files      SubmissionFile[]
+
+  @@unique([submissionId, questionId])
+  @@map("submission_answers")
+}
+
+model SubmissionFile {
+  id           Int      @id @default(autoincrement())
+  submissionId Int      @map("submission_id")
+  answerId     Int?     @map("answer_id")
+  fileName     String   @map("file_name")
+  fileKey      String   @map("file_key")
+  fileSize     Int      @map("file_size")
+  mimeType     String   @map("mime_type")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  submission Submission        @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  answer     SubmissionAnswer? @relation(fields: [answerId], references: [id], onDelete: SetNull)
+
+  @@map("submission_files")
+}
+
+model SubmissionComment {
+  id           Int      @id @default(autoincrement())
+  submissionId Int      @map("submission_id")
+  authorId     String   @map("author_id")
+  content      String   @db.Text
+  isInternal   Boolean  @default(false) @map("is_internal")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("submission_comments")
+}
+
+enum NotificationType {
+  SUBMISSION_RECEIVED
+  SUBMISSION_REVIEWED
+  FEEDBACK_RECEIVED
+  REVISION_REQUESTED
+  CERTIFICATE_ISSUED
+  ENROLLMENT_REQUESTED
+  ENROLLMENT_APPROVED
+  ENROLLMENT_REJECTED
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+enum QuizType {
+  PRE_TEST
+  POST_TEST
+  QUIZ
+}
+
+enum QuizPlacement {
+  BEFORE
+  AFTER
+}
+
+enum AssignmentAttachmentKind {
+  PROMPT
+  GUIDE
+  EXAMPLE
+}
+
+enum QuestionResponseType {
+  TEXT
+  FILE
+  BOTH
+}
+
+enum AttachmentVisibility {
+  STUDENT_ANYTIME
+  STUDENT_AFTER_SUBMIT
+  STUDENT_AFTER_APPROVED
+  INTERNAL_ONLY
+}
+
+model Quiz {
+  id           Int      @id @default(autoincrement())
+  title        String
+  type         QuizType @default(QUIZ)
+  maxAttempts  Int      @default(0) @map("max_attempts")
+  passingScore Float    @default(60) @map("passing_score")
+  isCourseGate Boolean  @default(false) @map("is_course_gate")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  questions         QuizQuestion[]
+  lessonQuizzes     LessonQuiz[]
+  sectionQuizzes    SectionQuiz[]
+  attempts          QuizAttempt[]
+  course            Course?        @relation(fields: [courseId], references: [id])
+  courseId          Int?
+  coursesAsPreTest  Course[]       @relation("CoursePreTest")
+  coursesAsPostTest Course[]       @relation("CoursePostTest")
+
+  @@map("quizzes")
+}
+
+model SectionQuiz {
+  id        Int            @id @default(autoincrement())
+  sectionId Int            @map("section_id")
+  quizId    Int            @map("quiz_id")
+  placement QuizPlacement  @default(AFTER)
+  order     Int            @default(0)
+  isGate    Boolean        @default(true) @map("is_gate")
+
+  section CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  quiz    Quiz          @relation(fields: [quizId],    references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, quizId])
+  @@map("section_quizzes")
+}
+
+model QuizQuestion {
+  id           Int    @id @default(autoincrement())
+  quizId       Int    @map("quiz_id")
+  questionText String @map("question_text") @db.Text
+  points       Float  @default(1)
+  order        Int
+
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  choices QuizChoice[]
+  answers QuizAnswer[]
+
+  @@map("quiz_questions")
+}
+
+model QuizChoice {
+  id         Int     @id @default(autoincrement())
+  questionId Int     @map("question_id")
+  choiceText String  @map("choice_text")
+  isCorrect  Boolean @default(false) @map("is_correct")
+
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  QuizAnswer[]
+
+  @@map("quiz_choices")
+}
+
+model LessonQuiz {
+  id       Int @id @default(autoincrement())
+  lessonId Int @map("lesson_id")
+  quizId   Int @map("quiz_id")
+  order    Int @default(0)
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, quizId])
+  @@map("lesson_quizzes")
+}
+
+model QuizAttempt {
+  id          Int       @id @default(autoincrement())
+  quizId      Int       @map("quiz_id")
+  studentId   String    @map("student_id")
+  attemptNo   Int       @map("attempt_no")
+  score       Float?
+  totalPoints Float?    @map("total_points")
+  percentage  Float?
+  isPassed    Boolean?  @map("is_passed")
+  isSubmitted Boolean   @default(false) @map("is_submitted")
+  startedAt   DateTime  @default(now()) @map("started_at")
+  submittedAt DateTime? @map("submitted_at")
+
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+
+  @@unique([quizId, studentId, attemptNo])
+  @@map("quiz_attempts")
+}
+
+model QuizAnswer {
+  id         Int @id @default(autoincrement())
+  attemptId  Int @map("attempt_id")
+  questionId Int @map("question_id")
+  choiceId   Int @map("choice_id")
+
+  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  choice   QuizChoice   @relation(fields: [choiceId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@map("quiz_answers")
+}
+
+model Certificate {
+  id       Int      @id @default(autoincrement())
+  userId   String   @map("user_id")
+  courseId Int      @map("course_id")
+  fileKey  String   @map("file_key")
+  issuedAt DateTime @default(now()) @map("issued_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("certificates")
+}
+
+model EvaluationRound {
+  id          Int     @id @default(autoincrement())
+  name        String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  maxScore    Float    @default(100) @map("max_score")
+  isActive    Boolean  @default(true) @map("is_active")
+  description String?  @db.Text
+  rubricJson  Json?    @map("rubric_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  evaluations     Evaluation[]
+  selfEvaluations SelfEvaluation[]
+
+  @@map("evaluation_rounds")
+}
+
+model Evaluation {
+  id          Int      @id @default(autoincrement())
+  roundId     Int      @map("round_id")
+  evaluatorId String   @map("evaluator_id")
+  evaluateeId String   @map("evaluatee_id")
+  score       Float
+  feedback    String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  round     EvaluationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  evaluator User            @relation("EvaluatorRel", fields: [evaluatorId], references: [id])
+  evaluatee User            @relation("EvaluateeRel", fields: [evaluateeId], references: [id])
+
+  @@unique([roundId, evaluatorId, evaluateeId])
+  @@map("evaluations")
+}
+
+model SelfEvaluation {
+  id         Int      @id @default(autoincrement())
+  roundId    Int      @map("round_id")
+  userId     String   @map("user_id")
+  score      Float
+  reflection String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  round EvaluationRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, userId])
+  @@map("self_evaluations")
+}
+
+model AssignmentAttachment {
+  id           Int                      @id @default(autoincrement())
+  assignmentId Int                      @map("assignment_id")
+  kind         AssignmentAttachmentKind
+  fileName     String                   @map("file_name")
+  fileKey      String                   @map("file_key")
+  fileSize     Int                      @map("file_size")
+  mimeType     String                   @map("mime_type")
+  uploadedById String                   @map("uploaded_by_id")
+  visibility   AttachmentVisibility     @default(STUDENT_ANYTIME)
+  createdAt    DateTime                 @default(now()) @map("created_at")
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  uploadedBy User       @relation(fields: [uploadedById], references: [id])
+
+  @@index([assignmentId, kind])
+  @@map("assignment_attachments")
+}
+
+model LessonAttachment {
+  id        Int      @id @default(autoincrement())
+  lessonId  Int      @map("lesson_id")
+  fileName  String   @map("file_name")
+  fileKey   String   @map("file_key")
+  fileSize  Int      @map("file_size")
+  mimeType  String   @map("mime_type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("lesson_attachments")
+}
+
+model ObservationVideo {
+  id          String   @id @default(cuid())
+  uploaderId  String   @map("uploader_id")
+  courseId    Int?     @map("course_id")
+  title       String
+  description String?  @db.Text
+  fileKey     String?  @map("file_key")
+  youtubeUrl  String?  @map("youtube_url")
+  durationSec Int?     @map("duration_sec")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  uploader User              @relation("ObsVideoUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  course   Course?           @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  scores   ObservationScore[]
+
+  @@map("observation_videos")
+}
+
+model ObservationScore {
+  id          String   @id @default(cuid())
+  videoId     String   @map("video_id")
+  evaluatorId String   @map("evaluator_id")
+  score       Int
+  feedback    String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  video     ObservationVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  evaluator User             @relation(fields: [evaluatorId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, evaluatorId])
+  @@map("observation_scores")
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model OutboundEmail {
+  id          Int         @id @default(autoincrement())
+  toUserId    String      @map("to_user_id")
+  templateKey String      @map("template_key")
+  payloadJson String      @map("payload_json")
+  status      EmailStatus @default(PENDING)
+  attempts    Int         @default(0)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  sentAt      DateTime?   @map("sent_at")
+
+  user User @relation(fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("outbound_emails")
+}

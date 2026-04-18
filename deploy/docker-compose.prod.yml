@@ -1,0 +1,145 @@
+version: "3.9"
+
+# Production stack: Next.js app + PostgreSQL + MinIO + Traefik (HTTPS)
+#
+# Required environment variables (set in .env.prod or pass to docker compose):
+#   DOMAIN              - public hostname, e.g. lms.example.com
+#   ACME_EMAIL          - email for Let's Encrypt
+#   DATABASE_URL        - postgresql://user:pass@db:5432/mini_lms
+#   NEXTAUTH_SECRET     - random 32-byte hex
+#   NEXTAUTH_URL        - https://<DOMAIN>
+#   MINIO_ROOT_USER / MINIO_ROOT_PASSWORD
+#   S3_ENDPOINT / S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY
+#   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM
+#   CRON_SECRET         - shared secret for /api/email/flush
+
+networks:
+  proxy:
+    external: true          # created once: docker network create proxy
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:
+  miniodata:
+  traefik_acme:
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: lms-traefik
+    restart: unless-stopped
+    networks:
+      - proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    command:
+      - --api.dashboard=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/acme/acme.json
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_acme:/acme
+
+  app:
+    image: mini-lms:latest          # built locally: docker build -t mini-lms .
+    container_name: lms-app
+    restart: unless-stopped
+    networks:
+      - proxy
+      - internal
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      CRON_SECRET: ${CRON_SECRET}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lms.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.lms.entrypoints=websecure
+      - traefik.http.routers.lms.tls.certresolver=le
+      - traefik.http.services.lms.loadbalancer.server.port=3000
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: lms-db
+    restart: unless-stopped
+    networks:
+      - internal
+    environment:
+      POSTGRES_DB: mini_lms
+      POSTGRES_USER: ${DB_USER:-lms}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-lms} -d mini_lms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: lms-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    networks:
+      - internal
+      - proxy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.minio.rule=Host(`minio.${DOMAIN}`)
+      - traefik.http.routers.minio.entrypoints=websecure
+      - traefik.http.routers.minio.tls.certresolver=le
+      - traefik.http.routers.minio.service=minio
+      - traefik.http.services.minio.loadbalancer.server.port=9000
+
+  # Email flush cron — calls /api/email/flush every 5 minutes
+  email-cron:
+    image: alpine/curl:latest
+    container_name: lms-email-cron
+    restart: unless-stopped
+    networks:
+      - internal
+    entrypoint: >
+      /bin/sh -c "
+      while true; do
+        curl -sS -X POST http://app:3000/api/email/flush \
+          -H 'x-cron-secret: ${CRON_SECRET}';
+        sleep 300;
+      done
+      "
+    depends_on:
+      - app
