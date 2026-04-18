@@ -1,0 +1,99 @@
+                                 
+              ()   
+
+1.          1 
+2. 
+
+     2.1   
+             -  LMS (Learning Management System)  Hierarchy
+
+ Workflow   
+             1)   
+                (1)       
+                (2)             
+             2) 
+                (1)        
+                (2)    
+                (3)  Pre-test, Post-test  Quiz 
+
+  
+                (4)  Percentage Completion   Real-time
+                (5)   Upload      
+                (6)  Pre-test, Post-test  Quiz 
+
+  
+                (7)   Generate   PDF -   
+
+ 
+                (8)       
+
+             3)  
+                 CAT
+                (1)      
+                (2)  
+                (3)   Feedback  
+                (4)    CAT     Feedback  CAM
+                 CAM
+                (1)  Profile     CAT 
+                (2)   Preview  ,     CAM 
+                (3)   CAT   
+                 
+                (1)  //  ,   
+                (2)      
+                (3)        CAT   CAM  One-to-Many
+                (4)   Export  CSV  Excel 
+ 
+                (5)       CAM
+
+     2.2  
+               Hierarchy 
+
+      
+             1.  
+                (1)  CAM 
+                (2)  CAT   
+                (3)    
+
+ 
+                (4)  -      
+
+             2. 
+                (1)    Dashboard      3   
+                (2)      CAT 
+                (3)   Export     CSV  Excel   
+
+
+             3.  
+                (1)  (MP4/MOV)  CAT 
+
+  
+                (2)  CAM  
+
+   
+
+3.    (  )
+  3.1   Cloud Server  
+  3.2    Session Management
+  3.3  Web Browser
+
+4.   
+     4.1  (SMEs) 
+
+  (SMEs)  
+5.    2  
+      5.1  1      70     
+
+ 2.1
+          45      
+      5.2  2  30 
+
+ 
+        90    
+
+6.     ...120,000...  ( )
+
+7.   60     
+
+                                         ......................................... 
+                                          (........................................)
+
