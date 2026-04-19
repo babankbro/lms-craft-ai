@@ -5,6 +5,7 @@ import { requireRole, requireAuth } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { NotificationType } from "@prisma/client";
 import { enqueueEmail } from "@/lib/mailer";
+import { maybeIssueCertificate } from "@/lib/certificate";
 
 export async function enrollInCourse(courseId: number) {
   const user = await requireRole("STUDENT");
@@ -97,6 +98,18 @@ export async function markLessonComplete(lessonId: number) {
     },
   });
 
+  const lesson = await prisma.lesson.findUniqueOrThrow({
+    where: { id: lessonId },
+    select: { courseId: true },
+  });
+  maybeIssueCertificate(user.id, lesson.courseId).catch(() => {});
+
+  revalidatePath("/courses");
+}
+
+export async function requestCertificate(courseId: number) {
+  const user = await requireAuth();
+  await maybeIssueCertificate(user.id, courseId);
   revalidatePath("/courses");
 }
 

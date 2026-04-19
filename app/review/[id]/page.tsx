@@ -39,6 +39,13 @@ export default async function ReviewDetailPage({
         },
       },
       files: true,
+      answers: {
+        include: {
+          question: { select: { prompt: true, order: true, responseType: true } },
+          files: { select: { id: true, fileName: true, fileKey: true, fileSize: true } },
+        },
+        orderBy: { question: { order: "asc" } },
+      },
       comments: {
         include: { author: { select: { fullName: true, role: true } } },
         orderBy: { createdAt: "asc" },
@@ -100,6 +107,45 @@ export default async function ReviewDetailPage({
         <form action={releaseReview.bind(null, submission.id)}>
           <Button type="submit" variant="ghost" size="sm">คืนงาน</Button>
         </form>
+      )}
+
+      {/* Student answers per question */}
+      {(submission as any).answers?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>คำตอบนักเรียน</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(submission as any).answers.map((answer: any) => (
+              <div key={answer.questionId} className="space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">
+                  {answer.question.order}. {answer.question.prompt}
+                </p>
+                {answer.textAnswer?.trim() ? (
+                  <p className="text-sm whitespace-pre-wrap bg-muted/30 rounded p-2">{answer.textAnswer}</p>
+                ) : answer.files?.length > 0 ? null : (
+                  <p className="text-sm text-muted-foreground italic">ยังไม่ได้ตอบ</p>
+                )}
+                {answer.files?.length > 0 && (
+                  <div className="space-y-1">
+                    {answer.files.map((f: any) => (
+                      <a
+                        key={f.id}
+                        href={`/api/files/preview/${f.fileKey}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                      >
+                        {f.fileName}
+                        <span className="text-muted-foreground">({(f.fileSize / 1024).toFixed(1)} KB)</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       <Card>

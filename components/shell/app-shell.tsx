@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Sidebar } from "./sidebar";
 import { SidebarMobile } from "./sidebar-mobile";
+import { NotificationBell } from "./notification-bell";
 import type { Role } from "./nav-config";
 
 interface Props {
@@ -33,6 +34,9 @@ export async function AppShell({ children }: Props) {
         <header className="flex h-14 items-center border-b px-4 md:hidden shrink-0">
           <SidebarMobile role={role} user={user} />
           <span className="ml-3 font-semibold text-sm">Mini LMS</span>
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </header>
 
         {/* Page content */}

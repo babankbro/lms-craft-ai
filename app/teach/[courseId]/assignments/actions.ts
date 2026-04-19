@@ -13,6 +13,7 @@ const AssignmentSchema = z.object({
   maxFileSizeMB: z.coerce.number().min(1).max(500).default(10),
   allowedTypes: z.string().default("application/pdf,image/jpeg,image/png"),
   dueDate: z.string().optional(),
+  maxScore: z.preprocess((v) => (v === "" || v == null ? null : parseFloat(v as string)), z.number().positive().nullable()).optional(),
 });
 
 async function requireCourseAuthor(courseId: number) {
@@ -87,6 +88,7 @@ export async function updateAssignment(id: number, courseId: number, formData: F
     maxFileSizeMB: formData.get("maxFileSizeMB") || 10,
     allowedTypes: formData.get("allowedTypes") || "application/pdf,image/jpeg,image/png",
     dueDate: formData.get("dueDate") || undefined,
+    maxScore: formData.get("maxScore"),
   });
 
   await prisma.assignment.update({
@@ -97,6 +99,7 @@ export async function updateAssignment(id: number, courseId: number, formData: F
       maxFileSize: data.maxFileSizeMB * 1024 * 1024,
       allowedTypes: data.allowedTypes.split(",").map((t) => t.trim()),
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      maxScore: data.maxScore ?? null,
     },
   });
 

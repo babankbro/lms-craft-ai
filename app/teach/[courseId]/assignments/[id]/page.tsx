@@ -111,13 +111,27 @@ export default async function EditAssignmentPage({
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="allowedTypes">ประเภทไฟล์ที่อนุญาต</Label>
-              <Input
-                id="allowedTypes"
-                name="allowedTypes"
-                defaultValue={assignment.allowedTypes.join(",")}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="allowedTypes">ประเภทไฟล์ที่อนุญาต</Label>
+                <Input
+                  id="allowedTypes"
+                  name="allowedTypes"
+                  defaultValue={assignment.allowedTypes.join(",")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxScore">คะแนนเต็ม (สำหรับคำนวณคะแนน)</Label>
+                <Input
+                  id="maxScore"
+                  name="maxScore"
+                  type="number"
+                  min={1}
+                  step={0.5}
+                  placeholder="ไม่กำหนด"
+                  defaultValue={assignment.maxScore ?? ""}
+                />
+              </div>
             </div>
             <Button type="submit">บันทึก</Button>
           </form>

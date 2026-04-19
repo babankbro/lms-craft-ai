@@ -1,15 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth, canAuthor } from "@/lib/permissions";
-import { enrollInCourse, cancelEnrollment, getCourseProgress } from "../actions";
+import { enrollInCourse, cancelEnrollment, getCourseProgress, requestCertificate } from "../actions";
+import { checkCourseCompletion } from "@/lib/certificate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lock, AlertTriangle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Award, Clock, FileText, Lock, AlertTriangle } from "lucide-react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { QuizStateBadge } from "./_components/quiz-state-badge";
-import { AssignmentPanel } from "./lessons/[lessonId]/_components/assignment-panel";
+import { CourseAssignmentCard } from "./_components/course-assignment-card";
+import { ScoreBreakdown } from "./_components/score-breakdown";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +29,23 @@ export default async function CourseDetailPage({
       sections: {
         orderBy: { order: "asc" },
         include: {
-          lessons: { orderBy: { order: "asc" }, select: { id: true, title: true, order: true, sectionId: true } },
+          lessons: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              title: true,
+              order: true,
+              sectionId: true,
+              estimatedMinutes: true,
+              _count: { select: { assignments: true } },
+              lessonQuizzes: {
+                select: {
+                  quizId: true,
+                  quiz: { select: { id: true, type: true } },
+                },
+              },
+            },
+          },
           sectionQuizzes: {
             include: { quiz: { select: { id: true, title: true, maxAttempts: true } } },
           },
@@ -36,7 +54,20 @@ export default async function CourseDetailPage({
       lessons: {
         where: { sectionId: null },
         orderBy: { order: "asc" },
-        select: { id: true, title: true, order: true, sectionId: true },
+        select: {
+          id: true,
+          title: true,
+          order: true,
+          sectionId: true,
+          estimatedMinutes: true,
+          _count: { select: { assignments: true } },
+          lessonQuizzes: {
+            select: {
+              quizId: true,
+              quiz: { select: { id: true, type: true } },
+            },
+          },
+        },
       },
       enrollments: {
         where: { userId: user.id },
@@ -58,6 +89,17 @@ export default async function CourseDetailPage({
   const isStaff = user.role === "ADMIN" || user.role === "INSTRUCTOR" || user.role === "MENTOR";
   const canViewAsEnrolled = isApproved || isStaff;
   const progress = isApproved ? await getCourseProgress(user.id, course.id) : 0;
+
+  // Certificate check (students only)
+  const existingCert = isApproved && user.role === "STUDENT"
+    ? await prisma.certificate.findUnique({
+        where: { userId_courseId: { userId: user.id, courseId: course.id } },
+        select: { id: true, fileKey: true },
+      })
+    : null;
+  const { isComplete } = isApproved && user.role === "STUDENT"
+    ? await checkCourseCompletion(user.id, course.id)
+    : { isComplete: false };
 
   const completedIds = isApproved
     ? new Set(
@@ -85,22 +127,31 @@ export default async function CourseDetailPage({
     preTestSubmitted = !!preTestAttempt;
   }
 
+  // Collect all lesson quiz IDs for the batch attempt fetch
+  const allLessonQuizIds = allLessons.flatMap((l) =>
+    (l.lessonQuizzes ?? []).map((lq: { quiz: { id: number } }) => lq.quiz.id)
+  );
+
   const quizAttemptMap = new Map<number, { isPassed: boolean | null; isSubmitted: boolean }>();
+  const lessonQuizAttemptMap = new Map<number, { isPassed: boolean | null; isSubmitted: boolean }>();
   if (isApproved) {
     const allQuizIds = [
       ...course.sections.flatMap((s) => s.sectionQuizzes.map((sq) => sq.quizId)),
       ...(course.preTestQuiz ? [course.preTestQuiz.id] : []),
       ...(course.postTestQuiz ? [course.postTestQuiz.id] : []),
+      ...allLessonQuizIds,
     ];
     if (allQuizIds.length > 0) {
       const attempts = await prisma.quizAttempt.findMany({
-        where: { studentId: user.id, quizId: { in: allQuizIds } },
+        where: { studentId: user.id, quizId: { in: allQuizIds }, isSubmitted: true },
+        orderBy: { attemptNo: "desc" },
+        distinct: ["quizId"],
         select: { quizId: true, isPassed: true, isSubmitted: true },
       });
       for (const a of attempts) {
-        const existing = quizAttemptMap.get(a.quizId);
-        if (!existing || (a.isPassed && !existing.isPassed)) {
-          quizAttemptMap.set(a.quizId, { isPassed: a.isPassed, isSubmitted: a.isSubmitted });
+        quizAttemptMap.set(a.quizId, { isPassed: a.isPassed, isSubmitted: a.isSubmitted });
+        if (allLessonQuizIds.includes(a.quizId)) {
+          lessonQuizAttemptMap.set(a.quizId, { isPassed: a.isPassed, isSubmitted: a.isSubmitted });
         }
       }
     }
@@ -111,17 +162,13 @@ export default async function CourseDetailPage({
     ? await (async () => {
         const assignments = await prisma.assignment.findMany({
           where: { courseId: course.id, lessonId: null },
-          include: { questions: { orderBy: { order: "asc" } } },
+          select: { id: true, title: true, dueDate: true, description: true },
           orderBy: { createdAt: "asc" },
         });
         const subs = assignments.length > 0
           ? await prisma.submission.findMany({
               where: { assignmentId: { in: assignments.map((a) => a.id) }, studentId: user.id },
-              include: {
-                files: true,
-                answers: { include: { files: true } },
-              },
-              orderBy: { updatedAt: "desc" },
+              select: { assignmentId: true, status: true },
             })
           : [];
         const subByAssignment = new Map(subs.map((s) => [s.assignmentId, s]));
@@ -144,11 +191,29 @@ export default async function CourseDetailPage({
           </p>
         </div>
         {isApproved && (
-          <div className="text-right">
+          <div className="text-right space-y-2">
             <Badge variant={progress === 100 ? "default" : "secondary"}>
               {progress === 100 ? "เรียนจบแล้ว" : `${progress}%`}
             </Badge>
             <Progress value={progress} className="w-32 mt-2" />
+            {existingCert ? (
+              <a
+                href={`/api/files/${existingCert.fileKey}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+              >
+                <Award className="w-3.5 h-3.5" />
+                ได้รับเกียรติบัตรแล้ว
+              </a>
+            ) : isComplete ? (
+              <form action={requestCertificate.bind(null, course.id)}>
+                <Button type="submit" size="sm" className="text-xs h-7 gap-1.5">
+                  <Award className="w-3.5 h-3.5" />
+                  ขอรับเกียรติบัตร
+                </Button>
+              </form>
+            ) : null}
           </div>
         )}
       </div>
@@ -185,6 +250,13 @@ export default async function CourseDetailPage({
               </form>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Score breakdown — approved students only */}
+      {isApproved && user.role === "STUDENT" && (
+        <div className="mb-6">
+          <ScoreBreakdown userId={user.id} courseId={course.id} />
         </div>
       )}
 
@@ -261,6 +333,8 @@ export default async function CourseDetailPage({
                   isApproved={canViewAsEnrolled}
                   isComplete={completedIds.has(lesson.id)}
                   isLocked={!preTestSubmitted && !isStaff}
+                  quizzes={(lesson.lessonQuizzes ?? []).map((lq: { quiz: { id: number; type: string } }) => lq.quiz)}
+                  quizAttemptMap={lessonQuizAttemptMap}
                 />
               ))}
               {section.lessons.length === 0 && (
@@ -285,6 +359,8 @@ export default async function CourseDetailPage({
                   isApproved={canViewAsEnrolled}
                   isComplete={completedIds.has(lesson.id)}
                   isLocked={!preTestSubmitted && !isStaff}
+                  quizzes={(lesson.lessonQuizzes ?? []).map((lq: { quiz: { id: number; type: string } }) => lq.quiz)}
+                  quizAttemptMap={lessonQuizAttemptMap}
                 />
               ))}
             </div>
@@ -297,30 +373,18 @@ export default async function CourseDetailPage({
       </div>
 
       {/* Course-level assignments */}
-      {courseAssignmentsWithSubs.length > 0 && (
-        <div className="mt-8 space-y-4">
+      {(isApproved || isStaff) && (
+        <div className="mt-8 space-y-3">
           <h2 className="text-lg font-semibold border-b pb-1">งานระดับวิชา</h2>
+          {courseAssignmentsWithSubs.length === 0 && (
+            <p className="text-sm text-muted-foreground">ยังไม่มีงานระดับวิชา</p>
+          )}
           {courseAssignmentsWithSubs.map(({ assignment, submission }) => (
-            <AssignmentPanel
+            <CourseAssignmentCard
               key={assignment.id}
-              assignment={{
-                ...assignment,
-                questions: assignment.questions.map((q) => ({
-                  ...q,
-                  maxLength: q.maxLength ?? null,
-                  maxFiles: q.maxFiles ?? null,
-                })),
-              }}
-              submission={submission ? {
-                ...submission,
-                answers: submission.answers.map((a) => ({
-                  questionId: a.questionId,
-                  textAnswer: a.textAnswer,
-                  files: a.files,
-                })),
-              } : null}
+              assignment={assignment}
+              submission={submission}
               courseSlug={course.slug}
-              lessonId={null}
             />
           ))}
         </div>
@@ -336,31 +400,68 @@ function LessonRow({
   isApproved,
   isComplete,
   isLocked = false,
+  quizzes = [],
+  quizAttemptMap,
 }: {
-  lesson: { id: number; title: string; order: number };
+  lesson: { id: number; title: string; order: number; estimatedMinutes?: number | null; _count?: { assignments: number } };
   courseSlug: string;
   isApproved: boolean;
   isComplete: boolean;
   isLocked?: boolean;
+  quizzes?: Array<{ id: number; type: string }>;
+  quizAttemptMap?: Map<number, { isPassed: boolean | null; isSubmitted: boolean }>;
 }) {
   const showLock = !isApproved || isLocked;
   const clickable = isApproved && !isLocked;
+  const assignmentCount = lesson._count?.assignments ?? 0;
+  const showQuizzes = isApproved && !isLocked && quizzes.length > 0;
+
   return (
     <Card className={`transition-colors ${clickable ? "hover:bg-muted/30" : "opacity-70"}`}>
       <CardHeader className="py-3 px-4">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            {showLock && <Lock className="w-3 h-3 text-muted-foreground" />}
+        <div className="flex justify-between items-center gap-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2 min-w-0">
+            {showLock && <Lock className="w-3 h-3 shrink-0 text-muted-foreground" />}
             {clickable ? (
-              <Link href={`/courses/${courseSlug}/lessons/${lesson.id}`} className="hover:underline">
+              <Link href={`/courses/${courseSlug}/lessons/${lesson.id}`} className="hover:underline truncate">
                 {lesson.order}. {lesson.title}
               </Link>
             ) : (
-              <span className="text-muted-foreground">{lesson.order}. {lesson.title}</span>
+              <span className="text-muted-foreground truncate">{lesson.order}. {lesson.title}</span>
             )}
           </CardTitle>
-          {isComplete && <Badge variant="default" className="text-xs">เรียนจบ</Badge>}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {lesson.estimatedMinutes && (
+              <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                ~{lesson.estimatedMinutes}นาที
+              </span>
+            )}
+            {assignmentCount > 0 && (
+              <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                <FileText className="w-3 h-3" />
+                {assignmentCount}งาน
+              </span>
+            )}
+            {isComplete && <Badge variant="default" className="text-xs">เรียนจบ</Badge>}
+          </div>
         </div>
+        {showQuizzes && (
+          <CardContent className="px-0 pt-2 pb-0">
+            <div className="flex flex-wrap gap-1.5 pl-5">
+              {quizzes.map((quiz) => (
+                <QuizStateBadge
+                  key={quiz.id}
+                  quizId={quiz.id}
+                  title={quiz.type === "PRE_TEST" ? "ก่อนเรียน" : quiz.type === "POST_TEST" ? "หลังเรียน" : "แบบทดสอบ"}
+                  placement={quiz.type === "PRE_TEST" ? "BEFORE" : "AFTER"}
+                  attempt={quizAttemptMap?.get(quiz.id)}
+                  href={`/courses/${courseSlug}/quiz/${quiz.id}`}
+                />
+              ))}
+            </div>
+          </CardContent>
+        )}
       </CardHeader>
     </Card>
   );

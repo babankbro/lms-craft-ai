@@ -92,7 +92,23 @@ model Course {
   preTestQuiz    Quiz? @relation("CoursePreTest",  fields: [preTestQuizId],  references: [id], onDelete: SetNull)
   postTestQuiz   Quiz? @relation("CoursePostTest", fields: [postTestQuizId], references: [id], onDelete: SetNull)
 
+  scoreConfig CourseScoreConfig?
+
   @@map("courses")
+}
+
+model CourseScoreConfig {
+  id                     Int      @id @default(autoincrement())
+  courseId               Int      @unique @map("course_id")
+  lessonQuizWeight       Float    @default(25) @map("lesson_quiz_weight")
+  sectionQuizWeight      Float    @default(25) @map("section_quiz_weight")
+  lessonAssignmentWeight Float    @default(25) @map("lesson_assignment_weight")
+  courseAssignmentWeight Float    @default(25) @map("course_assignment_weight")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("course_score_configs")
 }
 
 model Enrollment {
@@ -187,6 +203,7 @@ model Assignment {
   maxFileSize  Int       @default(10485760) @map("max_file_size")
   allowedTypes String[]  @default(["application/pdf", "image/jpeg", "image/png"]) @map("allowed_types")
   dueDate      DateTime? @map("due_date")
+  maxScore     Float?    @map("max_score")
   createdAt    DateTime  @default(now()) @map("created_at")
 
   lesson      Lesson?                @relation(fields: [lessonId], references: [id], onDelete: Cascade)

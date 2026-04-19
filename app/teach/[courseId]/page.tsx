@@ -336,6 +336,30 @@ export default async function TeachCourseWorkbenchPage({
           </Table>
         </CardContent>
       </Card>
+
+      <Separator />
+
+      {/* Score Config */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>น้ำหนักคะแนน</CardTitle>
+            <div className="flex gap-2">
+              <Link href={`/teach/${course.id}/scores`}>
+                <Button variant="outline" size="sm">คะแนนนักเรียน</Button>
+              </Link>
+              <Link href={`/teach/${course.id}/score-config`}>
+                <Button size="sm">กำหนดน้ำหนัก</Button>
+              </Link>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            ตั้งค่าน้ำหนักคะแนนสำหรับแบบทดสอบและงานมอบหมายในหลักสูตรนี้
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { SidebarNavGroup } from "./sidebar-nav-group";
 import { SidebarUserBlock } from "./sidebar-user-block";
+import { NotificationBell } from "./notification-bell";
 import { getNavForRole, type Role } from "./nav-config";
 
 const STORAGE_KEY = "lms.sidebar.collapsed";
@@ -48,20 +49,23 @@ export function Sidebar({ role, user }: Props) {
         {!collapsed && (
           <span className="font-semibold text-sm truncate">Mini LMS</span>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggle}
-          aria-label="ย่อ/ขยายเมนู"
-          aria-expanded={!collapsed}
-          className="h-8 w-8 shrink-0 ml-auto"
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" />
-          ) : (
-            <PanelLeftClose className="h-4 w-4" />
-          )}
-        </Button>
+        <div className="flex items-center gap-1 ml-auto">
+          {!collapsed && <NotificationBell />}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggle}
+            aria-label="ย่อ/ขยายเมนู"
+            aria-expanded={!collapsed}
+            className="h-8 w-8 shrink-0"
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Nav */}
