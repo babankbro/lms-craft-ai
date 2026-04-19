@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th" className={`${prompt.variable} ${ibmPlexSansThai.variable}`}>
+    <html lang="th" className={`${prompt.variable} ${ibmPlexSansThai.variable}`} data-density="comfortable">
       <body className="font-sans antialiased" suppressHydrationWarning>
         <AppShell>{children}</AppShell>
         <Toaster />

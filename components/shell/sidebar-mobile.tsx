@@ -26,21 +26,26 @@ export function SidebarMobile({ role, user }: Props) {
         size="icon"
         onClick={() => setOpen(true)}
         aria-label="เปิดเมนู"
-        className="h-9 w-9"
+        className="h-10 w-10 rounded-xl border border-border/70 bg-background/80"
       >
         <Menu className="h-5 w-5" />
       </Button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-64 p-0 flex flex-col" aria-label="เมนูหลัก">
+        <SheetContent side="left" className="flex w-72 flex-col border-r border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.84),rgba(247,244,236,0.96))] p-0" aria-label="เมนูหลัก">
           <SheetTitle className="sr-only">เมนูหลัก</SheetTitle>
           {/* Header */}
-          <div className="flex h-14 items-center border-b px-4 shrink-0">
-            <span className="font-semibold text-sm">Mini LMS</span>
+          <div className="flex h-16 items-center border-b border-border/70 px-4 shrink-0">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                DigiNest
+              </p>
+              <p className="text-sm font-semibold">LMS Workspace</p>
+            </div>
           </div>
 
           {/* Nav */}
-          <ScrollArea className="flex-1 px-2 py-2">
+          <ScrollArea className="flex-1 px-2 py-3">
             <SidebarNavGroup
               items={primary}
               collapsed={false}
@@ -54,7 +59,7 @@ export function SidebarMobile({ role, user }: Props) {
           </ScrollArea>
 
           {/* User block */}
-          <div className="shrink-0 border-t px-2 py-2">
+          <div className="shrink-0 border-t border-border/70 px-2 py-3">
             <SidebarUserBlock
               name={user.name}
               email={user.email}

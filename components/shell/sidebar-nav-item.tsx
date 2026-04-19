@@ -24,13 +24,19 @@ export function SidebarNavItem({ item, collapsed }: Props) {
       aria-current={isActive ? "page" : undefined}
       title={collapsed ? item.label : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 focus-ring",
         isActive
-          ? "bg-accent text-accent-foreground"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          ? "bg-[var(--brand-100)] text-[var(--brand-700)]"
+          : "text-[var(--ink-2)] hover:bg-[var(--bg-muted)]"
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      {isActive && !collapsed && (
+        <span
+          className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full"
+          style={{ background: "var(--brand-600)" }}
+        />
+      )}
+      <Icon className="h-[18px] w-[18px] shrink-0" />
       {collapsed ? (
         <span className="sr-only">{item.label}</span>
       ) : (

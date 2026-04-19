@@ -2,68 +2,390 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── DigiNest design tokens ─────────────────────────────────────────── */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --hue: 225;
+
+    /* Backgrounds */
+    --bg:       oklch(0.985 0.005 var(--hue));
+    --bg-muted: oklch(0.960 0.010 var(--hue));
+
+    /* Surfaces */
+    --surface:   oklch(1 0 0);
+    --surface-2: oklch(0.970 0.008 var(--hue));
+
+    /* Ink (text) */
+    --ink:   oklch(0.22 0.02 var(--hue));
+    --ink-2: oklch(0.32 0.02 var(--hue));
+    --ink-3: oklch(0.50 0.02 var(--hue));
+    --ink-4: oklch(0.65 0.015 var(--hue));
+
+    /* Borders */
+    --border:      oklch(0.90 0.01 var(--hue));
+    --border-soft: oklch(0.94 0.008 var(--hue));
+
+    /* Brand scale */
+    --brand-100: oklch(0.96 0.03 var(--hue));
+    --brand-200: oklch(0.92 0.06 var(--hue));
+    --brand-300: oklch(0.85 0.09 var(--hue));
+    --brand-400: oklch(0.75 0.12 var(--hue));
+    --brand-500: oklch(0.65 0.14 var(--hue));
+    --brand-600: oklch(0.55 0.15 var(--hue));
+    --brand-700: oklch(0.45 0.14 var(--hue));
+    --brand-800: oklch(0.35 0.10 var(--hue));
+
+    /* Semantic */
+    --success: oklch(0.58 0.14 155);
+    --warning: oklch(0.75 0.15 75);
+    --danger:  oklch(0.58 0.18 25);
+
+    /* Radii */
+    --r-sm: 8px;
+    --r-md: 16px;
+    --r-lg: 20px;
+    --r-xl: 24px;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px oklch(0.25 0.02 var(--hue) / 0.04),
+                 0 1px 3px oklch(0.25 0.02 var(--hue) / 0.06);
+    --shadow-md: 0 2px 4px oklch(0.25 0.02 var(--hue) / 0.05),
+                 0 8px 16px oklch(0.25 0.02 var(--hue) / 0.06);
+    --shadow-lg: 0 4px 8px oklch(0.25 0.02 var(--hue) / 0.06),
+                 0 24px 48px oklch(0.25 0.02 var(--hue) / 0.10);
+
+    /* ── shadcn/ui bridge (keep existing components working) ── */
+    --background:         46 42% 96%;
+    --foreground:         225 20% 22%;
+    --card:               0 0% 100%;
+    --card-foreground:    225 20% 22%;
+    --popover:            0 0% 100%;
+    --popover-foreground: 225 20% 22%;
+    --primary:            225 40% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary:          225 30% 92%;
+    --secondary-foreground: 225 30% 30%;
+    --muted:              225 20% 94%;
+    --muted-foreground:   225 15% 50%;
+    --accent:             225 30% 90%;
+    --accent-foreground:  225 30% 25%;
+    --destructive:        15 80% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border:             225 20% 88%;
+    --input:              225 20% 88%;
+    --ring:               225 40% 55%;
+    --radius:             1rem;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+  /* ── Dark mode ─────────────────────────────────────────────────────── */
+  .dark,
+  [data-theme="dark"] {
+    --bg:       oklch(0.18 0.02 var(--hue));
+    --bg-muted: oklch(0.21 0.02 var(--hue));
+    --surface:  oklch(0.24 0.02 var(--hue));
+    --surface-2: oklch(0.27 0.02 var(--hue));
+
+    --ink:   oklch(0.96 0.01 var(--hue));
+    --ink-2: oklch(0.88 0.01 var(--hue));
+    --ink-3: oklch(0.68 0.01 var(--hue));
+    --ink-4: oklch(0.50 0.01 var(--hue));
+
+    --border:      oklch(0.32 0.02 var(--hue));
+    --border-soft: oklch(0.28 0.02 var(--hue));
+
+    --brand-100: oklch(0.30 0.05 var(--hue));
+    --brand-200: oklch(0.35 0.07 var(--hue));
+    --brand-300: oklch(0.40 0.09 var(--hue));
+    --brand-400: oklch(0.52 0.12 var(--hue));
+    --brand-500: oklch(0.62 0.14 var(--hue));
+    --brand-600: oklch(0.68 0.14 var(--hue));
+    --brand-700: oklch(0.78 0.12 var(--hue));
+    --brand-800: oklch(0.88 0.08 var(--hue));
+
+    /* shadcn bridge */
+    --background:         225 25% 12%;
+    --foreground:         225 10% 93%;
+    --card:               225 22% 16%;
+    --card-foreground:    225 10% 93%;
+    --popover:            225 22% 16%;
+    --popover-foreground: 225 10% 93%;
+    --primary:            225 40% 65%;
+    --primary-foreground: 225 25% 12%;
+    --secondary:          225 20% 22%;
+    --secondary-foreground: 225 10% 88%;
+    --muted:              225 18% 20%;
+    --muted-foreground:   225 12% 62%;
+    --accent:             225 20% 25%;
+    --accent-foreground:  225 10% 93%;
+    --destructive:        15 70% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border:             225 18% 26%;
+    --input:              225 18% 26%;
+    --ring:               225 40% 65%;
   }
 }
 
+/* ─── Base styles ─────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border;
   }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans Thai", "IBM Plex Sans", system-ui, sans-serif;
     font-feature-settings: "cv11", "ss01";
     font-variation-settings: normal;
   }
+
   h1, h2, h3, h4, h5, h6 {
-    @apply font-heading tracking-tight;
+    @apply tracking-tight;
+    font-family: "IBM Plex Sans Thai", "IBM Plex Sans", system-ui, sans-serif;
   }
+
+  ::selection {
+    background: oklch(0.75 0.12 var(--hue) / 0.3);
+  }
+
+  a {
+    @apply transition-colors;
+  }
+}
+
+/* ─── DigiNest component utilities ───────────────────────────────────── */
+@layer components {
+
+  /* Surfaces */
+  .surface {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .surface-soft {
+    background: var(--bg-muted);
+    border-radius: var(--r-md);
+  }
+
+  /* Buttons */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--r-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+    background: linear-gradient(180deg, var(--brand-500), var(--brand-600));
+    box-shadow: 0 1px 2px oklch(0.25 0.05 var(--hue) / 0.15);
+    transition: all 0.15s ease;
+    cursor: pointer;
+    border: none;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, var(--brand-400), var(--brand-500));
+    box-shadow: 0 4px 12px oklch(0.25 0.05 var(--hue) / 0.18);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--r-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--brand-700);
+    background: transparent;
+    border: 1.5px solid var(--brand-300);
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .btn-outline:hover:not(:disabled) {
+    background: var(--brand-100);
+    border-color: var(--brand-400);
+  }
+  .btn-outline:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--r-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    background: transparent;
+    border: none;
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--bg-muted);
+    color: var(--ink);
+  }
+  .btn-ghost:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Chips / badges */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .chip-brand {
+    background: var(--brand-100);
+    color: var(--brand-700);
+  }
+  .chip-ghost {
+    background: var(--bg-muted);
+    color: var(--ink-3);
+    border: 1px solid var(--border);
+  }
+  .chip-success {
+    background: oklch(0.94 0.05 155);
+    color: oklch(0.38 0.12 155);
+  }
+  .chip-warn {
+    background: oklch(0.96 0.06 75);
+    color: oklch(0.45 0.15 75);
+  }
+
+  /* Form field */
+  .field {
+    width: 100%;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--r-sm);
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.875rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+  .field:focus {
+    border-color: var(--brand-400);
+    box-shadow: 0 0 0 3px oklch(0.75 0.12 var(--hue) / 0.18);
+  }
+  .field::placeholder {
+    color: var(--ink-4);
+  }
+
+  /* Focus ring utility */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--brand-400);
+    outline-offset: 2px;
+  }
+
+  /* Link */
+  .link {
+    color: var(--brand-600);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+  .link:hover {
+    color: var(--brand-700);
+  }
+
+  /* Keyboard shortcut */
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: monospace;
+    color: var(--ink-3);
+    background: var(--bg-muted);
+    border: 1px solid var(--border);
+  }
+
+  /* Density-aware padding */
+  [data-density="comfortable"] .dn-p {
+    padding: 20px 22px;
+  }
+  [data-density="compact"] .dn-p {
+    padding: 14px 16px;
+  }
+  .dn-p {
+    padding: 20px 22px; /* comfortable default */
+  }
+
+  /* Page padding */
+  .dn-pg {
+    padding: 1.5rem 1.5rem 3rem;
+  }
+  @media (min-width: 768px) {
+    .dn-pg {
+      padding: 2rem 2rem 4rem;
+    }
+  }
+
+  /* Pulse ring animation (notification dot) */
+  .pulse-ring {
+    animation: pulseRing 2s ease-in-out infinite;
+  }
+}
+
+/* ─── Animations ──────────────────────────────────────────────────────── */
+@layer utilities {
+  .fade-up {
+    animation: fadeUp 0.3s ease both;
+  }
+  .fade-in {
+    animation: fadeIn 0.2s ease both;
+  }
+  .slide-in-right {
+    animation: slideInRight 0.25s ease both;
+  }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseRing {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.15 var(--hue) / 0.5); }
+  50%       { box-shadow: 0 0 0 5px oklch(0.55 0.15 var(--hue) / 0); }
 }

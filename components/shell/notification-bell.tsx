@@ -87,7 +87,7 @@ export function NotificationBell() {
   return (
     <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-8 w-8">
+        <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-xl border border-border/60 bg-background/70">
           <Bell className="w-4 h-4" />
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
@@ -96,9 +96,12 @@ export function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between px-3 py-2 border-b">
-          <span className="text-sm font-semibold">การแจ้งเตือน</span>
+      <DropdownMenuContent align="end" className="w-[22rem] overflow-hidden rounded-[1.25rem] border border-border/70 bg-card/95 p-0 shadow-[0_24px_60px_-34px_rgba(20,55,48,0.45)]">
+        <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+          <div>
+            <span className="text-sm font-semibold">การแจ้งเตือน</span>
+            <p className="text-[11px] text-muted-foreground">อัปเดตล่าสุดของคุณ</p>
+          </div>
           {unreadCount > 0 && (
             <button
               onClick={markAllRead}
@@ -118,7 +121,7 @@ export function NotificationBell() {
           {!loading && notifications.map((n) => (
             <div
               key={n.id}
-              className={`flex gap-2.5 px-3 py-2.5 border-b last:border-b-0 hover:bg-muted/40 transition-colors ${!n.isRead ? "bg-muted/20" : ""}`}
+              className={`flex gap-2.5 border-b border-border/50 px-4 py-3 last:border-b-0 hover:bg-muted/45 transition-colors ${!n.isRead ? "bg-secondary/35" : ""}`}
             >
               <div className="mt-0.5">{getNotificationIcon(n.type)}</div>
               <div className="flex-1 min-w-0">

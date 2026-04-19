@@ -19,8 +19,8 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-ibm-plex-thai)", ...defaultTheme.fontFamily.sans],
-        heading: ["var(--font-prompt)", ...defaultTheme.fontFamily.sans],
+        sans: ["var(--font-ibm-plex-thai)", "IBM Plex Sans Thai", "IBM Plex Sans", ...defaultTheme.fontFamily.sans],
+        heading: ["var(--font-ibm-plex-thai)", "IBM Plex Sans Thai", "IBM Plex Sans", ...defaultTheme.fontFamily.sans],
       },
       colors: {
         border: "hsl(var(--border))",

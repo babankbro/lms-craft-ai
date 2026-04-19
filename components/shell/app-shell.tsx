@@ -24,16 +24,24 @@ export async function AppShell({ children }: Props) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen bg-transparent">
       {/* Desktop sidebar */}
       <Sidebar role={role} user={user} />
 
       {/* Mobile top bar + sheet */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-screen flex-1 flex-col">
         {/* Mobile top bar */}
-        <header className="flex h-14 items-center border-b px-4 md:hidden shrink-0">
+        <header
+          className="sticky top-0 z-30 flex h-16 items-center px-4 backdrop-blur md:hidden shrink-0"
+          style={{ background: "color-mix(in oklch, var(--bg) 85%, transparent)", borderBottom: "1px solid var(--border-soft)", backdropFilter: "blur(12px)" }}
+        >
           <SidebarMobile role={role} user={user} />
-          <span className="ml-3 font-semibold text-sm">Mini LMS</span>
+          <div className="ml-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              DigiNest
+            </p>
+            <p className="text-sm font-semibold">ระบบนิเทศและหนุนเสริม</p>
+          </div>
           <div className="ml-auto">
             <NotificationBell />
           </div>

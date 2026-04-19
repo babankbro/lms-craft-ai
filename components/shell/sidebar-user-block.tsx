@@ -32,17 +32,17 @@ export function SidebarUserBlock({ name, image, role, collapsed }: Props) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-accent/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex w-full items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5 text-left text-sm transition-colors hover:border-border/60 hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="เมนูผู้ใช้"
         >
-          <Avatar className="h-8 w-8 shrink-0">
+          <Avatar className="h-9 w-9 shrink-0 border border-border/60">
             <AvatarImage src={image ?? undefined} alt={name} />
             <AvatarFallback className="text-xs">{getInitials(name)}</AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex flex-1 flex-col overflow-hidden">
               <span className="truncate font-medium leading-tight line-clamp-1">{name}</span>
-              <Badge variant="secondary" className="mt-0.5 w-fit text-xs px-1.5 py-0">
+              <Badge variant="secondary" className="mt-1 w-fit border border-border/70 px-2 py-0.5 text-[11px] font-medium">
                 {ROLE_LABEL[role]}
               </Badge>
             </div>

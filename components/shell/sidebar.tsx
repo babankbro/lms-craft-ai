@@ -40,14 +40,32 @@ export function Sidebar({ role, user }: Props) {
   return (
     <aside
       aria-label="เมนูหลัก"
-      className={`hidden md:flex flex-col border-r bg-background transition-all duration-200 ${
+      className={`hidden md:flex flex-col transition-all duration-200 shrink-0 ${
         collapsed ? "w-16" : "w-64"
       }`}
+      style={{ background: "var(--surface)", borderRight: "1px solid var(--border)" }}
     >
-      {/* Header */}
-      <div className="flex h-14 items-center justify-between border-b px-3 shrink-0">
+      {/* Header / Logo */}
+      <div
+        className="flex h-16 items-center justify-between px-3 shrink-0"
+        style={{ borderBottom: "1px solid var(--border-soft)" }}
+      >
         {!collapsed && (
-          <span className="font-semibold text-sm truncate">Mini LMS</span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: "linear-gradient(135deg, var(--brand-400), var(--brand-600))" }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 10 12 5l10 5-10 5z" />
+                <path d="M6 12v5c3 3 9 3 12 0v-5" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-tight truncate" style={{ color: "var(--ink)" }}>DigiNest LMS</p>
+              <p className="text-[11px] truncate" style={{ color: "var(--ink-3)" }}>ระบบเรียนรู้ครูไทย</p>
+            </div>
+          </div>
         )}
         <div className="flex items-center gap-1 ml-auto">
           {!collapsed && <NotificationBell />}
@@ -69,7 +87,7 @@ export function Sidebar({ role, user }: Props) {
       </div>
 
       {/* Nav */}
-      <ScrollArea className="flex-1 px-2 py-2">
+      <ScrollArea className="flex-1 px-2 py-3">
         <SidebarNavGroup items={generalItems} collapsed={collapsed} />
         {adminItems.length > 0 && (
           <SidebarNavGroup
@@ -87,7 +105,7 @@ export function Sidebar({ role, user }: Props) {
       </ScrollArea>
 
       {/* User block */}
-      <div className="shrink-0 border-t px-2 py-2">
+      <div className="shrink-0 px-2 py-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
         <SidebarUserBlock
           name={user.name}
           email={user.email}
