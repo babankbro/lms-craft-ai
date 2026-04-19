@@ -1,4 +1,6 @@
-# Data Model Relationships: Course · Lesson · Assignment · Quiz
+# Data Model Relationships: Course · Lesson · Assignment · Quiz · Score
+
+Last aligned: **2026-04-19**
 
 ## Overview
 
@@ -105,6 +107,7 @@ Work submitted by students. Can be scoped to a lesson OR to the whole course.
 | `maxFileSize` | Int | Bytes; default 10 MB |
 | `allowedTypes` | String[] | MIME type whitelist |
 | `dueDate` | DateTime? | Optional deadline |
+| `maxScore` | Float? | Denominator for score normalisation (fallback chain: `assignment.maxScore → submission.maxScore → 100`) |
 
 ### Two scopes
 
@@ -139,15 +142,16 @@ Each assignment can have structured questions with three response types:
 
 ```
 DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED
-                              └──→ REVISION_REQUESTED → (re-submit)
-                              └──→ REJECTED
+                │                └──→ REVISION_REQUESTED → (re-submit)
+                │                └──→ REJECTED
+                └──→ DRAFT (recall — only before dueDate; `canRecallSubmission` guard)
 ```
 
 Each `Submission` holds:
-- `answers[]` — one `SubmissionAnswer` per question
-- `files[]` — uploaded files (attached to submission or specific answer)
+- `answers[]` — one `SubmissionAnswer` per question (text answer + optional per-answer files)
+- `files[]` — top-level uploaded files (attached to submission, not a specific question)
 - `comments[]` — threaded review comments (can be `isInternal` for instructor-only)
-- `score`, `feedback`, `reviewCycle` — grading data
+- `score`, `maxScore`, `feedback`, `reviewCycle` — grading data
 
 ---
 
@@ -207,26 +211,52 @@ startedAt (isSubmitted=false)
 
 ---
 
-## 6. Relationship Summary Diagram
+---
+
+## 6. CourseScoreConfig
+
+**Table:** `course_score_configs`
+
+Stores per-course score weights for the 4 scoring components.
+
+| Key field | Type | Notes |
+|---|---|---|
+| `courseId` | Int (unique) | FK → Course; one config per course |
+| `lessonQuizWeight` | Float | Default 25. Weight for lesson post-tests |
+| `sectionQuizWeight` | Float | Default 25. Weight for section post-tests |
+| `lessonAssignmentWeight` | Float | Default 25. Weight for lesson-level assignments |
+| `courseAssignmentWeight` | Float | Default 25. Weight for course-level assignments |
+
+**Key behaviour:**
+- Auto-upserted by `getStudentCourseScore` on first call (25/25/25/25 default)
+- Saved weights are stored as-is (sum = 100 enforced by UI, not DB)
+- At compute time, components with `score = null` are excluded from denominator — weight auto-redistributes
+- See `docs/decisions/ADR-005` for rationale
+
+---
+
+## 7. Relationship Summary Diagram
 
 ```
 Course ──────────────────────────────────────────────────────────┐
+ │                                                               │
+ ├─ CourseScoreConfig (1:1)                                      │
  │                                                               │
  ├─ CourseSection[]                                              │
  │    ├─ Lesson[] (sectionId set)                                │
  │    └─ SectionQuiz[] ──→ Quiz                                  │
  │                                                               │
  ├─ Lesson[] (sectionId null = unsectioned)                      │
- │    ├─ Assignment[] (lesson-level: lessonId=<id>, courseId=null)│
+ │    ├─ Assignment[] (lesson-level)                             │
  │    │    ├─ AssignmentQuestion[]                               │
- │    │    │    └─ SubmissionAnswer[]                            │
+ │    │    │    └─ SubmissionAnswer[] (via Submission)           │
  │    │    ├─ AssignmentAttachment[]                             │
  │    │    └─ Submission[]                                       │
- │    │         ├─ SubmissionFile[]                              │
+ │    │         ├─ SubmissionFile[] (top-level or per-answer)    │
  │    │         ├─ SubmissionAnswer[]                            │
+ │    │         │    └─ SubmissionFile[] (per-answer files)      │
  │    │         └─ SubmissionComment[]                           │
  │    ├─ LessonQuiz[] ──→ Quiz                                   │
- │    │    └─ QuizQuestion[] → QuizChoice[]                      │
  │    └─ LessonAttachment[]                                      │
  │                                                               │
  ├─ Assignment[] (course-level: lessonId=null, courseId=<id>)    │
@@ -245,7 +275,28 @@ Quiz ─────────────────────────
 
 ---
 
-## 7. Key Business Rules
+---
+
+## 8. OutboundEmail
+
+**Table:** `outbound_emails`
+
+Transactional email queue. Decouples email sending from request handling.
+
+| Key field | Type | Notes |
+|---|---|---|
+| `toUserId` | String | FK → User |
+| `templateKey` | String | e.g. `ENROLLMENT_APPROVED`, `SUBMISSION_REVIEWED` |
+| `payloadJson` | String | JSON string with template variables |
+| `status` | EmailStatus | `PENDING`, `SENT`, `FAILED` |
+| `attempts` | Int | Retry counter |
+| `sentAt` | DateTime? | Set on successful delivery |
+
+Flushed by `POST /api/email/flush` (ADMIN only). `lib/mailer.ts` renders the template from `templateKey` + `payloadJson` and sends via SMTP.
+
+---
+
+## 9. Key Business Rules
 
 | Rule | Where enforced |
 |---|---|
@@ -257,3 +308,7 @@ Quiz ─────────────────────────
 | Pre/post-test quiz is optional; pre-test gates enrollment start, post-test gates certificate | Course detail page logic |
 | Deleting an assignment with submissions is blocked unless `force=true` (ADMIN only) | `deleteAssignment` action |
 | `isCourseGate = true` on a SectionQuiz means student must pass to unlock next section | Section progress logic |
+| `CourseScoreConfig` weights must sum to 100 | `saveScoreConfig` server action (UI enforcement); DB does not check |
+| Score null-redistribution: components with no items excluded from weighted average | `lib/course-score.ts::computeWeightedFinal` |
+| `SubmissionAnswer` unique per `[submissionId, questionId]` | DB unique constraint |
+| `OutboundEmail` queue survives process restart; retry up to 3 attempts | `lib/mailer.ts` |

@@ -5,33 +5,55 @@ A full-featured LMS for Thai-language education: courses, lessons, quizzes, assi
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
+# 1. Start local services (PostgreSQL on :5434, MinIO on :9002/:9003)
+npm run docker:up
+
+# 2. Install dependencies
 npm install
 
-# 2. Copy environment template
-cp .env.example .env   # then fill in DB, NextAuth, S3, SMTP values
+# 3. Copy environment template and fill in values
+cp .env.example .env
 
-# 3. Apply database migrations + seed
-npx prisma migrate dev
-npx prisma db seed
+# 4. Apply database migrations
+npm run db:migrate
 
-# 4. Start dev server
+# 5. Seed dev data (all roles, sample courses, quizzes, assignments)
+npm run seed
+
+# 6. Start dev server
 npm run dev
 ```
 
 App runs at `http://localhost:3000`.
+
+### Default seed accounts
+
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@ksu.ac.th` | `password123` | ADMIN |
+| `instructor@ksu.ac.th` | `password123` | INSTRUCTOR |
+| `mentor1@school.ac.th` | `password123` | MENTOR |
+| `student1@school.ac.th` | `password123` | STUDENT |
+
+> Multiple mentor + student accounts are seeded (mentor1/mentor2, student1–studentN). See `prisma/seed.ts` for the full list.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start dev server (port 3000) |
-| `npm run build` | Production build |
+| `npm run build` | Production build (generate + migrate deploy + build) |
 | `npm run lint` | ESLint check |
-| `npx vitest run --pool=forks` | Run all unit tests |
-| `npx prisma migrate dev` | Apply pending migrations |
-| `npx prisma studio` | Browse database in browser |
-| `npx prisma db seed` | Seed dev data |
+| `npm run seed` | Seed dev data (`npx tsx prisma/seed.ts`) |
+| `npm run db:migrate` | Apply pending migrations (`prisma migrate dev`) |
+| `npm run db:reset` | Reset DB and re-apply all migrations (destructive) |
+| `npm run db:studio` | Browse database in browser |
+| `npm run docker:up` | Start PostgreSQL + MinIO via Docker Compose |
+| `npm run docker:down` | Stop Docker services |
+| `npm test` | Run Vitest unit tests |
+| `npm run test:ui` | Vitest with browser UI |
+| `npm run test:coverage` | Vitest with coverage report |
+| `npx vitest run --pool=forks` | Run tests without watch mode (CI-safe) |
 
 ## Environment Variables
 

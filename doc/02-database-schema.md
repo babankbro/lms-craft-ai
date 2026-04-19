@@ -1,6 +1,6 @@
 # 02 · Database Schema
 
-Source of truth: [`mini-lms/prisma/schema.prisma`](../mini-lms/prisma/schema.prisma). This document mirrors it; update both or none.
+Source of truth: [`prisma/schema.prisma`](../prisma/schema.prisma). This document mirrors it; update both or none.
 
 - **Provider**: PostgreSQL 16
 - **Client**: `@prisma/client` v6
@@ -20,7 +20,9 @@ Source of truth: [`mini-lms/prisma/schema.prisma`](../mini-lms/prisma/schema.pri
 | `QuizType` | `PRE_TEST`, `POST_TEST`, `QUIZ` |
 | `QuizPlacement` | `BEFORE`, `AFTER` |
 | `AssignmentAttachmentKind` | `PROMPT`, `GUIDE`, `EXAMPLE` |
+| `QuestionResponseType` | `TEXT`, `FILE`, `BOTH` |
 | `AttachmentVisibility` | `STUDENT_ANYTIME`, `STUDENT_AFTER_SUBMIT`, `STUDENT_AFTER_APPROVED`, `INTERNAL_ONLY` |
+| `EmailStatus` | `PENDING`, `SENT`, `FAILED` |
 
 ## Entity-relationship diagram
 
@@ -36,9 +38,9 @@ erDiagram
   User ||--o{ Notification : "receives"
   User ||--o{ Evaluation : "evaluates"
   User ||--o{ SelfEvaluation : "self-evaluates"
-  User ||--o{ SupervisionVideo : "uploads"
   User ||--o{ ObservationVideo : "uploads"
   User ||--o{ ObservationScore : "scores"
+  User ||--o{ OutboundEmail : "receives-email"
 
   Course ||--o{ CourseSection : "has"
   Course ||--o{ Lesson : "contains"
@@ -46,6 +48,8 @@ erDiagram
   Course ||--o{ Quiz : "owns"
   Course ||--o{ Certificate : "grants"
   Course ||--o{ ObservationVideo : "links"
+  Course ||--o{ Assignment : "has-course-level"
+  Course ||--|| CourseScoreConfig : "has"
 
   CourseSection ||--o{ Lesson : "groups"
   CourseSection ||--o{ SectionQuiz : "gates"
@@ -56,8 +60,14 @@ erDiagram
   Lesson ||--o{ LessonAttachment : "carries"
 
   Assignment ||--o{ Submission : "receives"
+  Assignment ||--o{ AssignmentAttachment : "carries"
+  Assignment ||--o{ AssignmentQuestion : "has"
+
+  AssignmentQuestion ||--o{ SubmissionAnswer : "answered-by"
+
   Submission ||--o{ SubmissionFile : "files"
   Submission ||--o{ SubmissionComment : "threads"
+  Submission ||--o{ SubmissionAnswer : "answers"
 
   Quiz ||--o{ QuizQuestion : "contains"
   Quiz ||--o{ QuizAttempt : "attempted"
@@ -72,7 +82,7 @@ erDiagram
   ObservationVideo ||--o{ ObservationScore : "scored-by"
 ```
 
-## Models (25)
+## Models (29)
 
 ### Identity
 
@@ -80,32 +90,54 @@ erDiagram
 
 ### Course graph
 
-- **`Course`** (`courses`) — id, title, slug (unique), description?, coverImageKey?, category?, level (CourseLevel?), authorId? → User, isPublished, publishedAt?, requiresApproval (default `true`), `preTestQuizId?` → Quiz (`onDelete: SetNull`, rel `"CoursePreTest"`), `postTestQuizId?` → Quiz (`onDelete: SetNull`, rel `"CoursePostTest"`), timestamps.
+- **`Course`** (`courses`) — id, title, slug (unique), description?, coverImageKey?, category?, level (CourseLevel?), authorId? → User, isPublished, publishedAt?, requiresApproval (default `true`), `preTestQuizId?` → Quiz, `postTestQuizId?` → Quiz, timestamps. Back-relation `scoreConfig → CourseScoreConfig`.
+
+- **`CourseScoreConfig`** (`course_score_configs`) — id, courseId (unique), lessonQuizWeight Float (default 25), sectionQuizWeight Float (default 25), lessonAssignmentWeight Float (default 25), courseAssignmentWeight Float (default 25), updatedAt. `onDelete: Cascade`. Auto-upserted on first `getStudentCourseScore` call.
+
 - **`CourseSection`** (`course_sections`) — id, courseId, title, description?, order, timestamps. Index `[courseId, order]`.
+
 - **`Lesson`** (`lessons`) — id, courseId, sectionId?, title, content (text), youtubeUrl?, estimatedMinutes?, order, timestamps. Index `[courseId, order]`.
+
 - **`LessonAttachment`** (`lesson_attachments`) — id, lessonId, fileName, fileKey, fileSize, mimeType, createdAt.
 
 ### Enrollment & progress
 
 - **`Enrollment`** (`enrollments`) — id, userId, courseId, status (EnrollmentStatus, default PENDING), requestedAt, reviewedAt?, reviewedById?, rejectReason?. Unique `[userId, courseId]`. Index `[courseId, status]`.
+
 - **`LessonProgress`** (`lesson_progress`) — id, userId, lessonId, isCompleted, completedAt?, createdAt. Unique `[userId, lessonId]`.
 
 ### Assignments & submissions
 
-- **`Assignment`** (`assignments`) — id, lessonId, title, description, maxFileSize (default 10 MB — *DB default; actual per-upload cap for `submissions/` prefix is 50 MB and for `assignments/` prefix is 25 MB, enforced in `/api/upload`*), allowedTypes (default `["application/pdf","image/jpeg","image/png"]`), dueDate?, createdAt.
-- **`AssignmentAttachment`** (`assignment_attachments`) — id, assignmentId, kind (AssignmentAttachmentKind), fileName, fileKey, fileSize, mimeType, uploadedById → User, visibility (AttachmentVisibility, default `STUDENT_ANYTIME`), createdAt. Index `[assignmentId, kind]`. Admin/instructor-uploaded prompt / guide / example files attached to an assignment.
-- **`Submission`** (`submissions`) — id, assignmentId, studentId, status (SubmissionStatus, default DRAFT), score?, maxScore?, feedback?, reviewedBy?, reviewedAt?, submittedAt?, firstSubmittedAt?, reviewCycle (default 1), updatedAt.
-- **`SubmissionFile`** (`submission_files`) — id, submissionId, fileName, fileKey, fileSize, mimeType, uploadedAt.
+- **`Assignment`** (`assignments`) — id, lessonId? (null = course-level), courseId? (set when lessonId is null), title, description, maxFileSize (default 10 MB), allowedTypes (default pdf/jpeg/png), dueDate?, **maxScore Float?** (denominator for score normalisation), createdAt.
+
+  > Two scopes: lesson-level (`lessonId = <id>`, `courseId = null`) and course-level (`lessonId = null`, `courseId = <id>`). The application layer enforces "exactly one scope set".
+
+- **`AssignmentQuestion`** (`assignment_questions`) — id, assignmentId, order, prompt (text), responseType (QuestionResponseType, default TEXT), required, maxLength?, maxFiles?. Index `[assignmentId, order]`.
+
+- **`AssignmentAttachment`** (`assignment_attachments`) — id, assignmentId, kind (AssignmentAttachmentKind), fileName, fileKey, fileSize, mimeType, uploadedById → User, visibility (AttachmentVisibility, default `STUDENT_ANYTIME`), createdAt. Index `[assignmentId, kind]`.
+
+- **`Submission`** (`submissions`) — id, assignmentId, studentId, status (SubmissionStatus, default DRAFT), score?, maxScore?, feedback?, reviewedBy?, reviewedAt?, submittedAt?, firstSubmittedAt?, reviewCycle (default 1), updatedAt. Has relations: `files`, `comments`, `answers`.
+
+- **`SubmissionAnswer`** (`submission_answers`) — id, submissionId, questionId, textAnswer?. Unique `[submissionId, questionId]`. Has `files SubmissionFile[]` (per-answer file attachments).
+
+- **`SubmissionFile`** (`submission_files`) — id, submissionId, answerId? (optional FK to `SubmissionAnswer`), fileName, fileKey, fileSize, mimeType, uploadedAt.
+
 - **`SubmissionComment`** (`submission_comments`) — id, submissionId, authorId, content, isInternal (default false), createdAt.
 
 ### Quizzes
 
-- **`Quiz`** (`quizzes`) — id, title, type (QuizType, default QUIZ), maxAttempts (0 = unlimited), passingScore (default 60), isCourseGate (default false), courseId?, createdAt. Back-relations: `coursesAsPreTest`, `coursesAsPostTest` (for Course's 1-to-1 Pre/Post FKs).
+- **`Quiz`** (`quizzes`) — id, title, type (QuizType, default QUIZ), maxAttempts (0 = unlimited), passingScore (default 60), isCourseGate (default false), courseId?, createdAt. Back-relations: `coursesAsPreTest`, `coursesAsPostTest`.
+
 - **`QuizQuestion`** (`quiz_questions`) — id, quizId, questionText, points (default 1), order.
+
 - **`QuizChoice`** (`quiz_choices`) — id, questionId, choiceText, isCorrect.
+
 - **`LessonQuiz`** (`lesson_quizzes`) — id, lessonId, quizId, order. Unique `[lessonId, quizId]`.
-- **`SectionQuiz`** (`section_quizzes`) — id, sectionId, quizId, placement (QuizPlacement, default `AFTER`), order, isGate (default true). Unique `[sectionId, quizId]`. The "at most one BEFORE + one AFTER per section" rule is enforced at the app layer (server actions), not the schema.
+
+- **`SectionQuiz`** (`section_quizzes`) — id, sectionId, quizId, placement (QuizPlacement, default `AFTER`), order, isGate (default true). Unique `[sectionId, quizId]`.
+
 - **`QuizAttempt`** (`quiz_attempts`) — id, quizId, studentId, attemptNo, score?, totalPoints?, percentage?, isPassed?, isSubmitted, startedAt, submittedAt?. Unique `[quizId, studentId, attemptNo]`.
+
 - **`QuizAnswer`** (`quiz_answers`) — id, attemptId, questionId, choiceId. Unique `[attemptId, questionId]`.
 
 ### Certificates
@@ -115,41 +147,40 @@ erDiagram
 ### Evaluation
 
 - **`EvaluationRound`** (`evaluation_rounds`) — id, name, startDate, endDate, maxScore (default 100), isActive, description?, rubricJson? (Json), createdAt.
+
 - **`Evaluation`** (`evaluations`) — id, roundId, evaluatorId, evaluateeId, score, feedback?, timestamps. Unique `[roundId, evaluatorId, evaluateeId]`.
+
 - **`SelfEvaluation`** (`self_evaluations`) — id, roundId, userId, score, reflection?, createdAt. Unique `[roundId, userId]`.
 
 ### Video corpus
 
-- **`SupervisionVideo`** (`supervision_videos`) — id, uploaderId, title, description?, fileKey? | youtubeUrl?, duration?, createdAt. *Legacy table — see notes.*
 - **`ObservationVideo`** (`observation_videos`) — id (cuid), uploaderId, courseId?, title, description?, fileKey? | youtubeUrl?, durationSec?, createdAt.
+
 - **`ObservationScore`** (`observation_scores`) — id (cuid), videoId, evaluatorId, score (Int), feedback?, createdAt. Unique `[videoId, evaluatorId]`.
 
-### Notifications
+### Notifications & email
 
 - **`Notification`** (`notifications`) — id, userId, type (NotificationType), title, message, link?, isRead, createdAt. Index `[userId, isRead]`.
 
+- **`OutboundEmail`** (`outbound_emails`) — id, toUserId, templateKey, payloadJson, status (EmailStatus, default PENDING), attempts (default 0), createdAt, sentAt?. Index `[status, createdAt]`. Flushed by `POST /api/email/flush`.
+
 ## Notable design points
 
-1. **Mixed key types**. Most models use `Int autoincrement` for performance and URL brevity; user-linked resources that are shared/shareable by URL or that require opacity (`User`, `ObservationVideo`, `ObservationScore`) use `cuid()`. This is intentional — do not "normalise" without migration planning.
+1. **Mixed key types**. Most models use `Int autoincrement`; user-linked resources that benefit from opacity (`User`, `ObservationVideo`, `ObservationScore`) use `cuid()`.
 2. **Mentor relationship** is a self-FK on `User.mentorId`. `canAccessStudent` in `lib/permissions.ts` enforces MENTOR ↔ STUDENT scoping.
-3. **Course `requiresApproval`** defaults `true`; `Enrollment.status` defaults to `PENDING`. Bypass path for "instant enrol" courses is conditional on `requiresApproval = false` (see [07-backlog.md](./07-backlog.md) for the planned approval UX work).
-4. **SupervisionVideo vs. ObservationVideo** — two co-existing tables. `SupervisionVideo` is legacy (video corpus from v2); new work goes to `ObservationVideo`. Consolidation is tracked in [06-implementation-plan.md](./06-implementation-plan.md).
-5. **Quiz gating** is expressed via `Quiz.isCourseGate`, `SectionQuiz.isGate`, and `Quiz.type` (PRE_TEST / POST_TEST). Enforcement lives in `lib/course-gates.ts`.
-6. **Soft-delete** is not modelled — deletions cascade (`onDelete: Cascade`) for child rows; `User → Course.author` and `User → Enrollment.reviewedBy` are `SetNull` to preserve authored content when an account is removed.
-
-## Shipped additions (as of 2026-04-18)
-
-The following design items from [08-quiz-assignment-plan.md](./08-quiz-assignment-plan.md) are **applied and live** in `schema.prisma`:
-
-- `enum QuizPlacement { BEFORE, AFTER }`
-- `SectionQuiz.placement` (default `AFTER`, covers existing rows)
-- `Course.preTestQuizId`, `Course.postTestQuizId` (nullable FKs to `Quiz`, `onDelete: SetNull`)
-- `enum AssignmentAttachmentKind { PROMPT, GUIDE, EXAMPLE }`
-- `enum AttachmentVisibility { STUDENT_ANYTIME, STUDENT_AFTER_SUBMIT, STUDENT_AFTER_APPROVED, INTERNAL_ONLY }`
-- `AssignmentAttachment` model
+3. **Course `requiresApproval`** defaults `true`; `Enrollment.status` defaults to `PENDING`.
+4. **Assignment dual-scope** — `lessonId` nullable, `courseId` optional FK. Application layer enforces exactly one is set. See `docs/decisions/ADR-006`.
+5. **CourseScoreConfig** — auto-upserted on first score calculation call; stores 4 Float weights (default 25 each). Redistribution of null components happens at compute time only. See `docs/decisions/ADR-005`.
+6. **Quiz gating** is expressed via `Quiz.isCourseGate`, `SectionQuiz.isGate`, and `Quiz.type`. Enforcement lives in `lib/course-gates.ts`.
+7. **Soft-delete** is not modelled — deletions cascade (`onDelete: Cascade`) for child rows; `User → Course.author` and similar reviewer FKs are `SetNull` to preserve content when an account is removed.
 
 ## Migrations
 
-As of 2026-04-18 the `prisma/migrations/` folder is managed by `prisma migrate dev`. Build runs `prisma migrate deploy` (see `package.json > scripts.build`).
+Three migrations as of 2026-04-19:
+- `20260418085821_init` — full initial schema
+- `20260418111121_course_assignment` — `lessonId` nullable + `courseId` FK on `Assignment`
+- `20260419085544_add_course_score_config` — `CourseScoreConfig` model + `Assignment.maxScore`
 
-Seed data: `prisma/seed.ts` (invoked via `npm run seed`).
+Managed by `prisma migrate dev`. Production uses `prisma migrate deploy` (wired into `npm run build`).
+
+Seed data: `prisma/seed.ts` — invoked via `npm run seed`.

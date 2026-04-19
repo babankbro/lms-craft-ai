@@ -1,198 +1,210 @@
 # 04 · Features
 
-Each subsection names the **module**, the **routes** in `mini-lms/app/`, the **domain helpers** in `lib/`, the **acceptance criteria** drawn from the TOR, and a **status flag** (✅ shipped, 🟡 partial, ⏳ planned).
+Each subsection names the **module**, the **routes** in `app/`, the **domain helpers** in `lib/`, the **acceptance criteria** drawn from the TOR, and a **status flag** (✅ shipped, 🟡 partial, ⏳ planned).
+
+Last aligned: **2026-04-19**.
 
 ## 1. Authentication & RBAC — ✅
 
 - **Routes**: `/login`, `GET|POST /api/auth/[...nextauth]`, `middleware.ts`.
-- **Helpers**: `lib/auth.ts` (NextAuth config), `lib/permissions.ts` (`requireAuth`, `requireRole`, `canReview`, `canAuthor`, `canManage`, `canAccessStudent`, `requireOwnStudent`).
+- **Helpers**: `lib/auth.ts`, `lib/permissions.ts` (`requireAuth`, `requireRole`, `canReview`, `canAuthor`, `canManage`, `canAccessStudent`, `requireOwnStudent`).
 - **Acceptance**:
   - [x] CredentialsProvider with `bcrypt.compare`
-  - [x] JWT stamped with `id`, `role`, `fullName`
-  - [x] 4-hour session, 1-hour rolling refresh
-  - [x] Route-level guards in `middleware.ts` for `/admin`, `/teach`, `/review`, `/mentees`, `/observe`
+  - [x] JWT stamped with `id`, `role`, `fullName`; 4-hour session, 1-hour rolling refresh
+  - [x] Route-level guards in `middleware.ts`
   - [x] Role dispatcher on `/dashboard`
 
-## 2. User management & mentor pairing — ✅ (one stub)
+## 2. User management & mentor pairing — ✅
 
 - **Routes**: `/admin/users`, `/admin/users/new`, `/admin/users/[id]`, `/admin/pairings`.
-- **Components**: `_components/role-select.tsx`, `_components/mentor-select.tsx` (client components — see archived `v3-09-admin-ux.md` for the Server-Component-event-handler root-cause fix that introduced these).
 - **Actions**: `createUser`, `updateUserRole`, `assignMentor`, `toggleUserActive`, `importUsersCSV`.
 - **Acceptance**:
   - [x] Create / list / filter users
-  - [x] Role switching via dropdown
-  - [x] Mentor assignment inline
+  - [x] Role switching, mentor assignment
   - [x] CSV bulk import
-  - [x] `requireOwnStudent(mentorId, studentId)` implemented in `lib/permissions.ts` — throws `ForbiddenError` when mentor is not paired with the student
+  - [x] `requireOwnStudent(mentorId, studentId)` in `lib/permissions.ts`
 
-## 3. Course authoring — 🟡
+## 3. Course authoring — ✅
 
-- **Routes**: `/teach`, `/teach/new`, `/teach/[courseId]`, `/teach/[courseId]/lessons/new|[lessonId]`, `/teach/[courseId]/quizzes/new|[quizId]`, `/teach/[courseId]/assignments`, `/teach/[courseId]/assignments/new|[id]`, `/teach/[courseId]/enrollments`.
-- **Helpers**: `lib/validators/course.ts`, `lib/slug.ts`.
+- **Routes**: `/teach`, `/teach/new`, `/teach/[courseId]`, `/teach/[courseId]/lessons/*`, `/teach/[courseId]/quizzes/*`, `/teach/[courseId]/assignments/*`, `/teach/[courseId]/enrollments`, `/teach/[courseId]/sections`, `/teach/[courseId]/score-config`, `/teach/[courseId]/scores`.
+- **Helpers**: `lib/validators/course.ts`, `lib/slug.ts`, `lib/course-score.ts`.
 - **Acceptance**:
   - [x] INSTRUCTOR creates / edits / publishes courses
-  - [x] Lesson editor with markdown (`components/markdown-renderer.tsx`) + YouTube embed (`components/youtube-player.tsx`)
-  - [x] Attachments panel (`app/admin/courses/[id]/lessons/[lessonId]/_components/attachments-panel.tsx`)
-  - [x] Quiz builder (question + choice CRUD)
-  - [x] Assignment CRUD
-  - [ ] Drag-and-drop reordering of lessons / sections — P1
-  - [ ] Cover image upload UI — P1
-  - [ ] Dedicated lesson / quiz list pages (currently inline on course page) — P2
+  - [x] Lesson editor with markdown + YouTube embed
+  - [x] Cover image upload (`CoverImageUpload` component)
+  - [x] Drag-and-drop reordering of lessons (`LessonListSortable`) and sections (`SectionListSortable`)
+  - [x] Section CRUD (create, rename, delete, reorder; drag lessons between sections)
+  - [x] Dedicated `/teach/[courseId]/lessons` and `/teach/[courseId]/quizzes` list pages
+  - [x] Assignment CRUD with structured questions, attachments, maxScore
+  - [x] Quiz builder with lesson/section/course placement (`linkQuizTarget`)
+  - [x] Score weight configuration (`CourseScoreConfig`, `/teach/[courseId]/score-config`)
+  - [x] Student score roster with CSV export (`/teach/[courseId]/scores`)
 
-## 4. Enrollment & student catalog — 🟡
+## 4. Enrollment & student catalog — ✅
 
-- **Routes**: `/courses` (student catalog), `/courses/[slug]` (course detail + sidebar), `/admin/enrollments`, `/teach/[courseId]/enrollments`.
-- **Flow**: Student clicks "Request enrollment" → `Enrollment.status = PENDING` → admin/instructor approves via `/admin/enrollments` → status `APPROVED` → student gains access. Rejection captures `rejectReason`.
+- **Routes**: `/courses`, `/courses/[slug]`, `/admin/enrollments`, `/teach/[courseId]/enrollments`.
 - **Acceptance**:
-  - [x] Catalog listing with category / level filters
-  - [x] Enrollment request + approval / rejection UI
-  - [x] Rejection reason captured and surfaced to student
+  - [x] Catalog with keyword / category / level filters
+  - [x] Enrollment request + approval / rejection with reject reason
   - [x] `Course.requiresApproval = false` supports instant enrollment
-  - [ ] Self-withdrawal from a pending request — see [07-backlog.md](./07-backlog.md)
+  - [x] Self-withdrawal from a pending request (`cancelEnrollment` action; `CANCELLED` status)
+  - [x] Enrollment notification to admin/instructor on new request
 
 ## 5. Learning experience — ✅
 
-- **Routes**: `/courses/[slug]/lessons/[lessonId]`, `/courses/[slug]/quiz/[quizId]`.
+- **Routes**: `/courses/[slug]/lessons/[lessonId]`, `/courses/[slug]/quiz/[quizId]`, `/courses/[slug]/assignments/[assignmentId]`.
 - **Helpers**: `lib/course-gates.ts`, `lib/scoring.ts`, `lib/submission-state.ts`.
-- **Components**: `course-sidebar.tsx`, `assignment-panel.tsx`, `quiz-banner.tsx`, `quiz-taker.tsx`.
 - **Acceptance**:
-  - [x] Lesson view with content, video, attachments, quiz banner, assignment panel
-  - [x] Lesson completion tracking (`LessonProgress`)
-  - [x] Inline quiz taking with attempt tracking
-  - [x] Pre-test / post-test type support
-  - [x] Course-gate quizzes block further access when `isCourseGate = true`
+  - [x] Lesson view with content, YouTube video, attachments, quiz badges
+  - [x] Lesson completion tracking; auto-triggers `maybeIssueCertificate`
+  - [x] Pre-test / post-test / section gate quiz enforcement
+  - [x] Per-lesson quiz type badges (PRE/POST) + attempt state badge
+  - [x] Section-level quiz placement (BEFORE / AFTER + `isGate`)
+  - [x] Student score breakdown panel on course overview
 
-## 6. Assignments & submissions — 🟡
+## 6. Assignments & submissions — ✅
 
-- **Routes**: `/submissions`, `/submissions/[id]`, `/review`, `/review/[id]`.
+- **Routes**: `/submissions`, `/submissions/[id]`, `/review`, `/review/[id]`, `/courses/[slug]/assignments/[assignmentId]`.
 - **State machine** (`lib/submission-state.ts`):
   ```
   DRAFT → SUBMITTED → UNDER_REVIEW → {APPROVED | REVISION_REQUESTED | REJECTED}
   REVISION_REQUESTED → SUBMITTED (reviewCycle += 1)
+  SUBMITTED → DRAFT (recall — before dueDate; `canRecallSubmission` guard)
   ```
 - **Acceptance**:
-  - [x] Student uploads one or many files per submission (`SubmissionFile`)
-  - [x] MIME-type + size validation on upload (header allow-list)
+  - [x] Lesson-level and course-level assignments
+  - [x] Structured questions (TEXT / FILE / BOTH) with `AssignmentQuestion`
+  - [x] `SubmissionAnswer` per question, with optional per-answer file attachments
+  - [x] MIME-type + size validation on upload
   - [x] Comment thread with `isInternal` flag
-  - [x] Mentor scoring + feedback
-  - [x] First-submission timestamp preserved across revisions
-  - [x] **`UNDER_REVIEW` edit-lock** — `lib/submission-state.ts::assertEditable()` throws when status ∈ `{UNDER_REVIEW, APPROVED, REJECTED}`; wired into `attachSubmissionFile` / `removeSubmissionFile`
-  - [x] **Admin-uploaded assignment attachments** (`AssignmentAttachment` + `AttachmentUploadPanel` at `/teach/[courseId]/assignments/[id]`)
-  - [~] **Per-submission file access-control** — `/api/files/preview` enforces owner/mentor-of-author/instructor-of-course/ADMIN; `/api/files/[...key]` currently falls back to `canReview(role)` without pairing check. See 06 P0-2-follow-up
-  - [ ] `file-type` magic-byte MIME sniffing (currently trusts `Content-Type`) — 06 P0-4
-  - [ ] `AttachmentVisibility` enforcement on the non-preview download route (`/api/files/[...key]` returns 404 for `assignments/*`) — 06 P0-2-follow-up
+  - [x] Mentor scoring + feedback (score + maxScore)
+  - [x] `UNDER_REVIEW` edit-lock via `assertEditable()`
+  - [x] Recall submission (`recallSubmission` — before deadline)
+  - [x] Instructor-uploaded assignment attachments with `AttachmentVisibility`
+  - [x] Text answers shown in review page + student submission detail
+  - [~] File access-control on `/api/files/[...key]` — preview route enforces pairing; direct route still uses `canReview(role)` (P0-5)
 
 ## 7. Mentor dashboard — ✅
 
 - **Routes**: `/mentees`, `/mentees/[studentId]`, `/review`, `/review/[id]`.
 - **Acceptance**:
-  - [x] List of mentor's assigned students (filtered by `User.mentorId`)
+  - [x] Mentee roster filtered by `User.mentorId`
   - [x] Drill-down to student's submissions, progress, evaluation scores
-  - [x] Review queue scoped to mentor's mentees (pending full `requireOwnStudent` wire-up — see §2)
+  - [x] Review queue scoped to paired mentees
 
 ## 8. Quizzes — ✅
 
-- **Schema**: `Quiz`, `QuizQuestion`, `QuizChoice`, `LessonQuiz`, `SectionQuiz` (with `placement: BEFORE|AFTER`), `QuizAttempt`, `QuizAnswer`. Course has direct `preTestQuizId` / `postTestQuizId` FKs.
-- **Types**: `PRE_TEST` (diagnostic, non-gating), `POST_TEST` (post-course gating), `QUIZ` (generic).
-- **Scoring**: `lib/scoring.ts` — sum of points for correct choices, percentage vs total, pass/fail vs `passingScore` (default 60%).
-- **Gating** (`lib/course-gates.ts`): `canEnterSection()` checks `BEFORE` gates; `isSectionComplete()` checks only `AFTER` gates; `canAccessLesson()` combines both. `canAccessPostTest()` checks all prior sections complete before course post-test unlocks.
-- **Validators** (`lib/validators/quiz.ts`): `courseQuizSchema` enforces `COURSE_QUIZ_MIN..MAX` (defaults 10..20); `sectionQuizSchema` enforces `SECTION_QUIZ_MIN..MAX` (defaults 2..3). All four bounds are env-overridable via `QUIZ_COURSE_MIN/MAX`, `QUIZ_SECTION_MIN/MAX`.
+- **Schema**: `Quiz`, `QuizQuestion`, `QuizChoice`, `LessonQuiz`, `SectionQuiz`, `QuizAttempt`, `QuizAnswer`. Course FKs `preTestQuizId` / `postTestQuizId`.
+- **Scoring**: `lib/scoring.ts`.
+- **Gating**: `lib/course-gates.ts` — `canEnterSection`, `isSectionComplete`, `canAccessLesson`, `canAccessPostTest`.
 - **Acceptance**:
-  - [x] Multi-choice single-correct questions
-  - [x] Configurable attempts (`maxAttempts = 0` means unlimited)
-  - [x] Attempt history per student
+  - [x] Multi-choice single-correct questions; configurable attempts; attempt history
   - [x] Gate enforcement via `Quiz.isCourseGate`, `SectionQuiz.isGate`, `SectionQuiz.placement`
-  - [x] **Course Pre-Test / Post-Test binding** (10–20 MCQ, `Course.preTestQuizId` / `postTestQuizId` FKs)
-  - [x] **Section Pre-quiz / Post-quiz with placement semantics** (2–3 MCQ) — `SectionQuiz.placement = BEFORE|AFTER`
-  - [x] **Course sidebar quiz-state UI** — state badge inline in `app/courses/[slug]/page.tsx` with 4 states (locked / in-progress / passed / retake)
-  - [ ] Extract `QuizStateBadge` into its own component file — cosmetic cleanup
-  - [ ] Free-form / short-answer questions — out of scope (tracked as P3-1)
+  - [x] Course pre-test / post-test binding (10–20 MCQ)
+  - [x] Section pre-quiz / post-quiz with placement semantics (2–3 MCQ)
+  - [x] `QuizStateBadge` extracted to `app/courses/[slug]/_components/quiz-state-badge.tsx`
+  - [x] Per-lesson quiz type badges in teach workbench + course overview `LessonRow`
 
-## 9. Certificates — 🟡
+## 9. Score management — ✅
+
+- **Routes**: `/teach/[courseId]/score-config`, `/teach/[courseId]/scores`.
+- **Helper**: `lib/course-score.ts` (`getStudentCourseScore`, `computeWeightedFinal`).
+- **Export**: `GET /api/export/course-scores`.
+- **Acceptance**:
+  - [x] 4 weighted components: lesson quizzes, section quizzes, lesson assignments, course assignments
+  - [x] Weights must sum to 100; null components auto-redistribute (see ADR-005)
+  - [x] `Assignment.maxScore` for score normalisation
+  - [x] Instructor score roster with color-coded final scores
+  - [x] Student score breakdown panel on course overview
+  - [x] CSV export
+
+## 10. Certificates — ✅
 
 - **Routes**: `/certificates`, `POST /api/certificate/generate`.
-- **Helpers**: `lib/certificate.ts`.
+- **Helpers**: `lib/certificate.ts` (`checkCourseCompletion`, `maybeIssueCertificate`).
 - **Acceptance**:
-  - [x] PDF generation on completion
-  - [x] Stored in MinIO via fileKey
-  - [x] One certificate per (user, course) — enforced by unique index
-  - [x] Auto-issue triggered when the final gate passes
-  - [ ] `@react-pdf/renderer` upgrade (currently hand-rolled PDF) — P2
+  - [x] PDF generation; stored in MinIO; one per (user, course)
+  - [x] Auto-issue triggered from `markLessonComplete` (fire-and-forget)
+  - [x] Explicit student request via "ขอรับเกียรติบัตร" button on course overview
+  - [x] Certificate download link shown on course overview
 
-## 10. Evaluation rounds — 🟡
+## 11. Evaluation rounds — 🟡
 
 - **Routes**: `/evaluations`, `/admin/evaluations`.
 - **Helpers**: `lib/evaluation-stats.ts`.
 - **Acceptance**:
-  - [x] Admin configures `EvaluationRound` with start / end dates, max score, rubric JSON
-  - [x] Evaluees graded by peers (`Evaluation`, unique per evaluator+evaluatee+round)
-  - [x] Self-evaluation (`SelfEvaluation`, unique per user+round)
-  - [x] Round averages computed for leaderboard
+  - [x] Admin configures `EvaluationRound` with dates, max score, rubric JSON
+  - [x] Peer grading (`Evaluation`) and self-evaluation (`SelfEvaluation`)
+  - [x] Round averages for leaderboard
   - [ ] Rubric editor UI (currently raw JSON) — P2
 
-## 11. Observation videos — 🟡
+## 12. Observation videos — 🟡
 
 - **Routes**: `/observe`, `/observe/new`, `/observe/[id]`, `/api/observe/videos`.
-- **Upload targets**: MinIO (via `/api/upload?purpose=videos`) or YouTube URL (parsed by `lib/youtube.ts`).
 - **Acceptance**:
-  - [x] Mentor / instructor uploads or links a video
-  - [x] Peer scoring with `ObservationScore` (Int score, feedback text, unique per evaluator)
-  - [x] Playback on `/observe/[id]` via `youtube-player.tsx` or presigned MinIO URL
-  - [ ] 500 MB file-upload pipeline hardening (chunked, resumable) — P1
-  - [ ] Legacy `SupervisionVideo` table consolidation into `ObservationVideo` — P2
+  - [x] Upload to MinIO or link YouTube URL
+  - [x] Peer scoring with `ObservationScore`
+  - [x] Scoped: student sees own; mentor sees mentees'; admin/instructor sees all
+  - [ ] 500 MB chunked upload pipeline — P1
+  - [ ] `SupervisionVideo` legacy table consolidation — P1
 
-## 12. Reports & leaderboard — ✅
+## 13. Reports & leaderboard — ✅
 
 - **Routes**: `/reports/progress`, `/reports/leaderboard`.
-- **Helpers**: `lib/evaluation-stats.ts`.
 - **Acceptance**:
-  - [x] Progress report per student (lessons completed, quiz scores, submissions status)
-  - [x] Leaderboard top-N per group, driven by evaluation round averages
-  - [x] Exports available via `/api/export/*`
+  - [x] Per-student progress (lessons, quizzes, submissions)
+  - [x] Group filter on progress report
+  - [x] Leaderboard driven by evaluation round averages
+  - [x] All exports via `/api/export/*`
 
-## 13. Notifications — ✅
+## 14. Notifications — ✅
 
 - **Routes**: `/api/notifications` (GET list, PATCH mark-read).
-- **Triggers** (enum `NotificationType`):
-  - SUBMISSION_RECEIVED, SUBMISSION_REVIEWED, FEEDBACK_RECEIVED, REVISION_REQUESTED
-  - CERTIFICATE_ISSUED
-  - ENROLLMENT_REQUESTED, ENROLLMENT_APPROVED, ENROLLMENT_REJECTED
+- **Component**: `components/shell/notification-bell.tsx` (desktop sidebar + mobile header).
+- **Types**: `SUBMISSION_RECEIVED`, `SUBMISSION_REVIEWED`, `FEEDBACK_RECEIVED`, `REVISION_REQUESTED`, `CERTIFICATE_ISSUED`, `ENROLLMENT_REQUESTED`, `ENROLLMENT_APPROVED`, `ENROLLMENT_REJECTED`.
 - **Acceptance**:
-  - [x] In-app bell / unread badge
-  - [x] Deep-link via `Notification.link`
-  - [x] Mark-read (per-id or mark-all)
-  - [ ] Email delivery (SMTP integration) — out of current scope
+  - [x] In-app bell with unread badge
+  - [x] Mark-read per-id or mark-all
+  - [x] Type-specific icons in dropdown
 
-## 14. Dashboards — ✅
+## 15. Email — 🟡
 
-- **Route**: `/dashboard` — role dispatcher rendering one of the `_components/*-dashboard.tsx` variants.
-- **Variants**: `admin-dashboard`, `instructor-dashboard`, `mentor-dashboard`, `student-dashboard` (plus legacy `cam`, `cat`, `researcher`, `researcher` variants from v2 that remain as components but are not routed).
+- **Helper**: `lib/mailer.ts` (nodemailer + `OutboundEmail` queue).
+- **Endpoint**: `POST /api/email/flush` (ADMIN only).
+- **Templates**: `ENROLLMENT_REQUESTED`, `ENROLLMENT_APPROVED`, `ENROLLMENT_REJECTED`, submission reviewed, revision requested.
 - **Acceptance**:
-  - [x] Admin sees KPIs, recent activity, pending approvals
-  - [x] Instructor sees own courses, pending submissions
-  - [x] Mentor sees mentees, review queue, upcoming evaluation rounds
-  - [x] Student sees enrolled courses, assignment status, next quiz
+  - [x] Queue table `OutboundEmail` survives process restart
+  - [x] SMTP configurable via `SMTP_*` env vars
+  - [~] Flush endpoint sends queued emails — triggered manually; no cron yet
 
-## 15. File storage & presigned URLs — ✅
+## 16. Dashboards — ✅
 
-- **Helper**: `lib/minio.ts`.
-- **Buckets / prefixes**: single bucket `mini-lms-storage` with prefixes `lessons/`, `covers/`, `submissions/`, `videos/`, `profiles/`, `certificates/`.
-- **Presign**: 15 minutes (`FILE_PRESIGN_TTL_SECONDS=900`).
+- **Route**: `/dashboard` — role dispatcher.
+- **Variants**: student, instructor, mentor, admin.
 - **Acceptance**:
-  - [x] Upload with purpose-scoped auth
-  - [x] Presigned preview URLs
-  - [x] Download streaming with auth check
-  - [x] Delete via `DELETE /api/files/[...key]` with DB cleanup
+  - [x] Student: enrolled courses + progress + certs + unread notifications
+  - [x] Instructor: own courses, pending submissions
+  - [x] Mentor: mentees, review queue, upcoming evaluations
+  - [x] Admin: KPIs, pending approvals, recent activity
 
-## 16. Operations & DevEx — 🟡
+## 17. File storage & presigned URLs — 🟡
 
-- **Local infra**: `docker-compose.yml` spins up `postgres:16-alpine` (port 5434) and MinIO (`9002` api / `9003` console). `minio-init` container provisions the bucket and public-download policy.
-- **Database scripts**: `npm run db:migrate`, `db:reset`, `db:studio`, `seed`.
-- **Testing**: `npm test` (Vitest), `npm run test:e2e` (Playwright — config at `playwright.config.ts`).
+- **Helper**: `lib/minio.ts`, `lib/attachment-visibility.ts`.
 - **Acceptance**:
-  - [x] Single-command startup (`npm run docker:up && npm run dev`)
-  - [x] Seed data covers all roles
-  - [x] Health endpoint `/api/health`
-  - [ ] Production docker-compose template — P2
-  - [ ] Automated DB backups + retention — P2
-  - [ ] Orphaned-object GC for MinIO — P2
+  - [x] Upload with purpose-scoped auth + magic-byte MIME sniff (`lib/mime-sniff.ts`)
+  - [x] Presigned preview URLs via `/api/files/preview/[...key]`
+  - [x] `AttachmentVisibility` enforcement on preview route
+  - [~] `/api/files/[...key]` direct route: submissions use role check (not mentor pairing); assignment attachments return 404 (P0-5/P0-6)
+
+## 18. Planned features (Phase 2+)
+
+See `tasks/todo.md` and individual plan files for breakdown.
+
+| Feature | Plan file | Priority |
+|---------|-----------|----------|
+| Password reset (forgot password) | `tasks/plan_password_reset.md` | P0 |
+| User profile settings | `tasks/plan_user_profile.md` | P1 |
+| Timed quiz with countdown + auto-submit | `tasks/plan_timed_quiz.md` | P1 |
+| Lesson Q&A / Discussion | `tasks/plan_lesson_discussion.md` | P1 |
+| Course announcements | `tasks/plan_announcements.md` | P2 |
+| Bulk enrollment import (CSV) | `tasks/plan_bulk_enrollment.md` | P2 |
